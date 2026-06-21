@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "finalize-agent-prompt": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/finalize-agent-prompt/SKILL.md",
+      "computedHash": "a72bea0359d7f69295a28e9f4b94c5dc6fc093930dae663d8c7bab294ea287d3"
+    },
     "product-brainstorming": {
       "source": "anthropics/knowledge-work-plugins",
       "sourceType": "github",
