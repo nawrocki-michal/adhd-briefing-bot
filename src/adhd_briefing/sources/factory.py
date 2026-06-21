@@ -2,6 +2,7 @@
 
 from adhd_briefing.models import Article
 from adhd_briefing.sources.base import SourceProvider
+from adhd_briefing.sources.discovery import discover_feed
 from adhd_briefing.sources.rss import RSSProvider
 from adhd_briefing.sources.scraper import ScraperProvider
 
@@ -21,15 +22,31 @@ def get_provider(url: str) -> SourceProvider:
 
 
 async def fetch_articles(url: str) -> list[Article]:
-    """Pobiera artykuły z URL, z fallbackiem na alternatywny provider.
+    """Pobiera artykuły ze źródła, preferując feed RSS (model „śledzę źródło").
 
-    Jeśli zgadnięty provider zwróci pustą listę, próbujemy drugiego — strona
-    mogła zostać błędnie sklasyfikowana (feed bez oczywistego URL / strona z RSS).
+    Kolejność:
+      1. URL wygląda jak feed → RSSProvider.
+      2. Strona → znajdź feed (auto-discovery) → RSSProvider na feedzie.
+      3. Może to feed bez oczywistego URL → RSSProvider wprost.
+      4. Fallback: pojedyncza strona przez ScraperProvider.
     """
-    primary = get_provider(url)
-    articles = await primary.fetch(url)
+    # 1. Jawny feed po heurystyce URL.
+    if isinstance(get_provider(url), RSSProvider):
+        articles = await RSSProvider().fetch(url)
+        if articles:
+            return articles
+
+    # 2. Strona — spróbuj znaleźć feed publikacji.
+    feed_url = await discover_feed(url)
+    if feed_url:
+        articles = await RSSProvider().fetch(feed_url)
+        if articles:
+            return articles
+
+    # 3. Może to jednak feed (bez oczywistego URL).
+    articles = await RSSProvider().fetch(url)
     if articles:
         return articles
 
-    fallback = ScraperProvider() if isinstance(primary, RSSProvider) else RSSProvider()
-    return await fallback.fetch(url)
+    # 4. Fallback: scraper pojedynczej strony.
+    return await ScraperProvider().fetch(url)

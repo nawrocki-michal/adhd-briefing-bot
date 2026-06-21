@@ -1,6 +1,5 @@
 """Testy jednostkowe warstwy SourceProvider (bez sieci — mocki)."""
 
-import feedparser
 import pytest
 
 from adhd_briefing.models import Article
@@ -65,10 +64,10 @@ SAMPLE_RSS = """<?xml version="1.0"?>
 
 
 async def test_rss_provider_parses_entries(monkeypatch):
-    async def _fake_to_thread(fn, *args, **kwargs):
-        return feedparser.parse(SAMPLE_RSS)
+    async def _dl(self, url):
+        return SAMPLE_RSS
 
-    monkeypatch.setattr("adhd_briefing.sources.rss.asyncio.to_thread", _fake_to_thread)
+    monkeypatch.setattr(RSSProvider, "_download", _dl)
 
     articles = await RSSProvider().fetch("https://example.com/feed")
     assert len(articles) == 2
@@ -80,11 +79,19 @@ async def test_rss_provider_parses_entries(monkeypatch):
 
 
 async def test_rss_provider_empty_on_garbage(monkeypatch):
-    async def _fake_to_thread(fn, *args, **kwargs):
-        return feedparser.parse("<html><body>not a feed</body></html>")
+    async def _dl(self, url):
+        return "<html><body>not a feed</body></html>"
 
-    monkeypatch.setattr("adhd_briefing.sources.rss.asyncio.to_thread", _fake_to_thread)
+    monkeypatch.setattr(RSSProvider, "_download", _dl)
     assert await RSSProvider().fetch("https://example.com") == []
+
+
+async def test_rss_provider_empty_on_download_failure(monkeypatch):
+    async def _dl(self, url):
+        return None
+
+    monkeypatch.setattr(RSSProvider, "_download", _dl)
+    assert await RSSProvider().fetch("https://example.com/feed") == []
 
 
 # --- ScraperProvider z mockiem httpx + trafilatura ---
@@ -147,17 +154,36 @@ async def test_scraper_provider_empty_on_http_error(monkeypatch):
 
 
 async def test_fetch_articles_falls_back_to_rss(monkeypatch):
-    """Strona sklasyfikowana jako scraper, ale pusta → fallback na RSS."""
+    """Strona bez wykrytego feedu → RSSProvider wprost (krok 3) zwraca artykuł."""
 
-    async def _empty(self, url):
-        return []
+    async def _no_feed(url, **kwargs):
+        return None
 
     async def _rss_hit(self, url):
         return [Article(url=url, title="t", content="c", source_url=url)]
 
-    monkeypatch.setattr(ScraperProvider, "fetch", _empty)
+    monkeypatch.setattr("adhd_briefing.sources.factory.discover_feed", _no_feed)
     monkeypatch.setattr(RSSProvider, "fetch", _rss_hit)
 
     articles = await fetch_articles("https://example.com/article")
     assert len(articles) == 1
     assert articles[0].title == "t"
+
+
+async def test_fetch_articles_discovers_feed(monkeypatch):
+    """Strona → auto-discovery znajduje feed → RSSProvider na feedzie."""
+
+    async def _discover(url, **kwargs):
+        return "https://example.com/feed.xml"
+
+    async def _rss(self, url):
+        if "feed" in url:
+            return [Article(url="https://a", title="z feedu", content="c", source_url=url)]
+        return []
+
+    monkeypatch.setattr("adhd_briefing.sources.factory.discover_feed", _discover)
+    monkeypatch.setattr(RSSProvider, "fetch", _rss)
+
+    articles = await fetch_articles("https://example.com/blog")
+    assert len(articles) == 1
+    assert articles[0].title == "z feedu"

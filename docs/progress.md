@@ -22,9 +22,14 @@
 
 ## Do zrobienia
 
-### Następny krok — M4.5 (auto-discovery RSS) → potem M5 (scheduler)
-- [ ] SourceProvider: z adresu bloga/homepage znajdź feed RSS (link rel=alternate + /feed)
+### Następny krok — runda prompty + evalsy (M3.5), potem M5 (scheduler)
+- [ ] Eval harness streszczeń (golden set, LLM-as-judge, A/B promptów)
 - [ ] M5: scheduler (APScheduler + SqliteJobStore, timezone-aware, idempotencja)
+
+### Model źródeł (ważna decyzja UX)
+- Źródło = publikacja którą śledzisz (feed/blog), podane **raz** w onboardingu;
+  agent codziennie sam wyłapuje **nowe** artykuły (dedup). User nic nie wkleja codziennie.
+- Auto-discovery RSS: wklejasz dowolny URL (artykuł/homepage) → agent znajduje feed publikacji.
 
 ### MVP — Faza C (Capture)
 - [x] **M0** — repo (`git init`, `.gitignore`, `pyproject.toml`, `.env.example`, `config.py`), `pip install -e .` OK
@@ -45,6 +50,10 @@
   - AsyncSqliteSaver z trwałym połączeniem (Bug #3), thread_id per user (Bug #2)
   - 14/14 nowych testów; **bot przetestowany na żywo na Telegramie — działa**
   - pytest: `pythonpath=["src"]` (niezależne od editable .pth); całość 51/51
+- [x] **M4.5** — auto-discovery RSS + fix pobierania feedów
+  - `sources/discovery.py` (link rel=alternate + fallback /feed); `fetch_articles` preferuje feed
+  - **fix:** RSSProvider pobiera feed przez httpx z UA przeglądarki (feedparser z domyślnym UA był blokowany 403 → tylko 1 art.)
+  - na żywo: 15-20 artykułów ze źródła (wcześniej 1); 57/57 testów, ruff czysty
 - [ ] `OnboardingGraph` z `SqliteSaver` i `interrupt()`
 - [ ] `BriefingGraph` z Send() fan-out i reducerami
 - [ ] Scheduler (APScheduler + SqliteJobStore, timezone-aware)
