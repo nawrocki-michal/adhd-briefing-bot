@@ -22,9 +22,26 @@
 
 ## Do zrobienia
 
-### Następny krok — M5 (scheduler) lub tone-as-user-choice
-- [ ] M5: scheduler (APScheduler + SqliteJobStore, timezone-aware, idempotencja)
-- [ ] tone-as-user-choice (onboarding + users.tone + parametr promptu) + read-time w formacie
+### Decyzje do podjęcia — "co dalej" (do wyboru z userem)
+- [ ] **tone-as-user-choice + read-time** — user wybiera ton w onboardingu (3 presety:
+  neutral/warm/direct), `users.tone` w schemacie, parametr promptu summarizera; read-time per artykuł
+- [ ] **M5 — Scheduler** — automatyczny briefing codziennie (APScheduler + SqliteJobStore,
+  timezone-aware, idempotencja przez `briefing_runs`)
+- [ ] **M6 — README + Dockerfile** — self-hostable repo na GitHub (akapit tradeoff o LangGraph)
+- [ ] **Rozszerzenie golden setu** — więcej źródeł/wariantów + A/B presetów tonu w evalu
+
+### Decyzja: deployment / hosting (w toku)
+- Cel: always-on bot na darmowym hoście (nie tylko lokalnie)
+- **Vercel odrzucony** — serverless/bezstanowy, brak trwałego dysku, timeouty funkcji;
+  nie pasuje do always-on stateful bota (wymagałby przepisania: webhook + Postgres + cron)
+- Realne opcje (ten sam kod + Dockerfile, bez przeróbek): **Fly.io** (deploy kontenera, karta do weryfikacji),
+  **Oracle Cloud Always Free VM** ($0 forever, karta), **własny sprzęt 24/7** (RPi/laptop, zero kart)
+- Pytanie rozstrzygające: portfolio/nauka deployu → Fly.io; ma po prostu działać → własny sprzęt; $0 forever + VM → Oracle
+- ⚠️ Trwałość: zostajemy przy SQLite na trwałym dysku/volume (zero zmian w kodzie)
+
+### W toku — A/B promptów summarizera (skill finalize-agent-prompt)
+- [ ] Instalacja skilla `finalize-agent-prompt` (awesome-copilot)
+- [ ] Przegląd promptów → 3 warianty `_SYSTEM` summarizera → test evalem → wdrożenie najlepszego
 
 ### Done — runda prompty + evalsy (M3.5)
 - [x] Wytyczne ADHD (`docs/adhd-content-guidelines.md`) → rubryka 9 wymiarów
