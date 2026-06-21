@@ -22,15 +22,17 @@
 
 ## Do zrobienia
 
-### Następny krok — M2 (warstwa SQLite)
-- [ ] Znormalizowany schemat SQLite + migracje (aiosqlite, WAL, dedup, idempotencja)
+### Następny krok — M3 (BriefingGraph + CLI)
+- [ ] `BriefingState` z reducerem, async nodes, Send() fan-out, AsyncSqliteSaver, CLI
 
 ### MVP — Faza C (Capture)
 - [x] **M0** — repo (`git init`, `.gitignore`, `pyproject.toml`, `.env.example`, `config.py`), `pip install -e .` OK
 - [x] **M1** — `SourceProvider` (RSS + trafilatura) zbudowany i przetestowany
   - 14/14 testów jednostkowych zielonych (`tests/test_sources.py`)
   - **Benchmark GATE: GO ✅ 5/5** realnych URL-i (`docs/source-benchmark.md`)
-- [ ] Znormalizowany schemat SQLite z migracjami
+- [x] **M2** — warstwa SQLite (`db/schema.sql` + `db/database.py`)
+  - 6 znormalizowanych tabel, WAL mode, dedup per-user, idempotencja schedulera
+  - 15/15 testów zielonych (`tests/test_database.py`)
 - [ ] `OnboardingGraph` z `SqliteSaver` i `interrupt()`
 - [ ] `BriefingGraph` z Send() fan-out i reducerami
 - [ ] Scheduler (APScheduler + SqliteJobStore, timezone-aware)
