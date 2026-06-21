@@ -1,0 +1,31 @@
+# Secrets
+.env
+
+# SQLite
+*.db
+*.db-wal
+*.db-shm
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
+
+# macOS
+.DS_Store
+
+# OMC runtime state (zachowujemy tylko .omc/plans/)
+.omc/sessions/
+.omc/state/
+.omc/drafts/
+.omc/research/
+.omc/logs/
