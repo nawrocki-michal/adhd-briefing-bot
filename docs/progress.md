@@ -22,9 +22,16 @@
 
 ## Do zrobienia
 
-### Następny krok — runda prompty + evalsy (M3.5), potem M5 (scheduler)
-- [ ] Eval harness streszczeń (golden set, LLM-as-judge, A/B promptów)
+### Następny krok — M5 (scheduler) lub tone-as-user-choice
 - [ ] M5: scheduler (APScheduler + SqliteJobStore, timezone-aware, idempotencja)
+- [ ] tone-as-user-choice (onboarding + users.tone + parametr promptu) + read-time w formacie
+
+### Done — runda prompty + evalsy (M3.5)
+- [x] Wytyczne ADHD (`docs/adhd-content-guidelines.md`) → rubryka 9 wymiarów
+- [x] Eval harness (`evals/`): golden set (good + złe warianty), LLM-as-judge (Sonnet 4.6),
+  auto-checki, runner. Eval zwalidowany: discrimination 8/8.
+- [x] Iteracja promptu summarizera mierzona evalem: **84 → 87 → 93/100**
+  (BLUF wzmocniony, regresja redundancji złapana i naprawiona, decimal-bug w auto-checku fix)
 
 ### Model źródeł (ważna decyzja UX)
 - Źródło = publikacja którą śledzisz (feed/blog), podane **raz** w onboardingu;

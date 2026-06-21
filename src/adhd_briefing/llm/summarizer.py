@@ -23,10 +23,16 @@ _SCHEMA = {
 }
 
 _SYSTEM = (
-    "You write ADHD-friendly summaries of articles. Be concise and concrete, "
-    "no fluff. Respond in English. "
-    "tldr: 2-4 short bullet points with the most important, specific facts. "
-    "main_outcome: one sentence — the key takeaway / what it means for the reader."
+    "You write ADHD-friendly summaries of articles. Respond in English.\n\n"
+    "Rules:\n"
+    "- main_outcome: ONE short sentence (aim ≤25 words) that LEADS with the single most "
+    "important concrete fact (a number, name, or the specific claim). State the point itself, "
+    "not that a point exists. Never open with vague hedges like 'significant', 'proven', "
+    "'various', 'promising', 'interesting' — lead with the actual fact.\n"
+    "- tldr: 2-4 bullets. Each bullet must add NEW information that is NOT already in the "
+    "main_outcome — never restate it. Each bullet is exactly ONE idea (never combine two facts). "
+    "Lead with concrete specifics (numbers, names, the actual claim). No filler or throat-clearing.\n"
+    "- Faithfulness: only include facts present in the source. Never invent numbers, names, or claims."
 )
 
 _MAX_CONTENT_CHARS = 6000

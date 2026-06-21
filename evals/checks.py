@@ -9,7 +9,9 @@ def auto_checks(main_outcome: str, tldr: list[str]) -> dict:
         "n_bullets": n,
         "bullet_count_ok": 2 <= n <= 4,
         "bullets_short_ok": all(len(b.split()) <= 40 for b in tldr) if tldr else False,
-        "main_outcome_one_sentence": len(re.findall(r"[.!?]+", main_outcome)) <= 1,
+        # liczymy tylko końce zdań (interpunkcja + spacja/koniec), pomijając kropki
+        # dziesiętne typu "1.1" czy "$4,000.50" (kropka przed cyfrą/nie-spacją)
+        "main_outcome_one_sentence": len(re.findall(r"[.!?]+(?=\s|$)", main_outcome.strip())) <= 1,
         "format_valid": isinstance(tldr, list) and isinstance(main_outcome, str) and bool(main_outcome.strip()),
     }
 
