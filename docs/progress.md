@@ -39,9 +39,13 @@
 - Pytanie rozstrzygające: portfolio/nauka deployu → Fly.io; ma po prostu działać → własny sprzęt; $0 forever + VM → Oracle
 - ⚠️ Trwałość: zostajemy przy SQLite na trwałym dysku/volume (zero zmian w kodzie)
 
-### W toku — A/B promptów summarizera (skill finalize-agent-prompt)
-- [ ] Instalacja skilla `finalize-agent-prompt` (awesome-copilot)
-- [ ] Przegląd promptów → 3 warianty `_SYSTEM` summarizera → test evalem → wdrożenie najlepszego
+### Done — A/B promptów summarizera (skill finalize-agent-prompt)
+- [x] Skill `finalize-agent-prompt` zainstalowany (`.agents/skills/`)
+- [x] `Summarizer(system_prompt=...)` — parametryzacja promptu do A/B
+- [x] 3 warianty (`evals/prompt_variants.py`): A=struktura+self-check, B=few-shot, C=kontrastywny ✗/✓
+- [x] Wykryta i naprawiona kontaminacja evala (przykład w C używał case'a z golden setu → neutralny)
+- [x] Wynik A/B (2 cases × 2 runs): **C 96.5 > baseline 94.8 > A 93.5 > B 92.0**
+- [x] Wdrożony wariant C (kontrastywny) → standardowy eval **98/100**
 
 ### Done — runda prompty + evalsy (M3.5)
 - [x] Wytyczne ADHD (`docs/adhd-content-guidelines.md`) → rubryka 9 wymiarów

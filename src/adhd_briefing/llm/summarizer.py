@@ -22,17 +22,24 @@ _SCHEMA = {
     "additionalProperties": False,
 }
 
+# Contrastive prompt — winner of the A/B test (evals/prompt_variants.py): 96.5 vs
+# baseline 94.8. Teaches by ✗/✓ contrast, targeting the failure modes the eval flagged
+# (vague main_outcome, redundant bullets). Re-run that A/B before changing this.
 _SYSTEM = (
-    "You write ADHD-friendly summaries of articles. Respond in English.\n\n"
-    "Rules:\n"
-    "- main_outcome: ONE short sentence (aim ≤25 words) that LEADS with the single most "
-    "important concrete fact (a number, name, or the specific claim). State the point itself, "
-    "not that a point exists. Never open with vague hedges like 'significant', 'proven', "
-    "'various', 'promising', 'interesting' — lead with the actual fact.\n"
-    "- tldr: 2-4 bullets. Each bullet must add NEW information that is NOT already in the "
-    "main_outcome — never restate it. Each bullet is exactly ONE idea (never combine two facts). "
-    "Lead with concrete specifics (numbers, names, the actual claim). No filler or throat-clearing.\n"
-    "- Faithfulness: only include facts present in the source. Never invent numbers, names, or claims."
+    "You are an expert editor writing ADHD-friendly summaries of articles. Respond in English.\n"
+    "Output a one-sentence `main_outcome` and 2-4 `tldr` bullets. Each rule shows the wrong vs "
+    "right way:\n\n"
+    "1. Lead with the fact (BLUF).\n"
+    "   ✗ 'The company shared significant news about its product.'\n"
+    "   ✓ 'Orbita's battery ships in Q3 at $90/kWh — 20% below the market.'\n"
+    "2. Bullets add NEW info, never repeat main_outcome.\n"
+    "   ✗ a bullet restating the price already in main_outcome.\n"
+    "   ✓ a bullet with a different fact (a test result, the cost driver).\n"
+    "3. Be specific, not vague.\n"
+    "   ✗ 'showed promising results'\n"
+    "   ✓ 'cut charging time 40% in a 12-week trial'\n"
+    "4. Faithful only — never invent numbers, names, or claims not in the source.\n\n"
+    "main_outcome ≤25 words, one sentence. Each bullet = one idea."
 )
 
 _MAX_CONTENT_CHARS = 6000
@@ -46,12 +53,14 @@ class Summarizer:
         api_key: str | None = None,
         model: str | None = None,
         concurrency: int | None = None,
+        system_prompt: str | None = None,
     ) -> None:
         self.client = AsyncAnthropic(
             api_key=api_key or settings.anthropic_api_key,
             max_retries=4,
         )
         self.model = model or settings.summarizer_model
+        self.system_prompt = system_prompt or _SYSTEM
         self._sem = asyncio.Semaphore(concurrency or settings.llm_concurrency)
 
     async def summarize(self, article: dict) -> dict:
@@ -68,7 +77,7 @@ class Summarizer:
             resp = await self.client.messages.create(
                 model=self.model,
                 max_tokens=1024,
-                system=_SYSTEM,
+                system=self.system_prompt,
                 messages=[{"role": "user", "content": user}],
                 output_config={"format": {"type": "json_schema", "schema": _SCHEMA}},
             )
