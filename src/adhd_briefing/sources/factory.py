@@ -50,3 +50,13 @@ async def fetch_articles(url: str) -> list[Article]:
 
     # 4. Fallback: scraper pojedynczej strony.
     return await ScraperProvider().fetch(url)
+
+
+async def fetch_single(url: str) -> list[Article]:
+    """Pobiera DOKŁADNIE jedną stronę (model „streść mi ten artykuł").
+
+    W przeciwieństwie do fetch_articles() NIE robi auto-discovery feedu — gdyby
+    użytkownik wkleił link do konkretnego artykułu, discovery wróciłoby z najnowszymi
+    postami całej witryny zamiast tego jednego tekstu. Tu zawsze scrapujemy ten URL.
+    """
+    return await ScraperProvider().fetch(url)

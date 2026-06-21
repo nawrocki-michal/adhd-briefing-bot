@@ -14,6 +14,7 @@ class BriefingState(TypedDict):
 
     chat_id: str
     sources: list[str]
+    pending_urls: list[str]  # inbox jednorazowy — pobierany wprost (bez discovery), pinned
     raw_articles: Annotated[list[dict], operator.add]
     filtered_articles: list[dict]
     summarized_articles: list[dict]

@@ -147,6 +147,45 @@ async def test_one_source_fails_others_survive(db, monkeypatch):
 # --- limit max_articles ---
 
 
+# --- inbox jednorazowy (pending_articles) ---
+
+
+async def test_pending_article_delivered_via_fetch_single(db, monkeypatch):
+    """Zakolejkowany URL → pobrany przez fetch_single (nie fetch_articles) i dostarczony."""
+    await db.upsert_user("u1", [], [], "08:00", "Europe/Warsaw")
+    await db.add_pending("u1", ["https://paste"])
+    # fetch_articles puste (brak stałych źródeł); fetch_single zwraca wklejony artykuł.
+    monkeypatch.setattr("adhd_briefing.graphs.briefing.fetch_articles", _make_fetch({}))
+    monkeypatch.setattr(
+        "adhd_briefing.graphs.briefing.fetch_single",
+        _make_fetch({"https://paste": [Article("https://paste", "Pasted", "t", "https://paste")]}),
+    )
+
+    graph = build_briefing_graph(db, FakeSummarizer())
+    state = await graph.ainvoke(_initial("u1", []))
+
+    titles = {a["title"] for a in state["summarized_articles"]}
+    assert titles == {"Pasted"}
+
+
+async def test_pending_bypasses_seen_filter(db, monkeypatch):
+    """Wklejony artykuł przechodzi nawet jeśli był już 'seen' (pinned bypass)."""
+    await db.upsert_user("u1", [], [], "08:00", "Europe/Warsaw")
+    await db.mark_seen("u1", "https://paste")  # niby już widziany
+    await db.add_pending("u1", ["https://paste"])
+    monkeypatch.setattr("adhd_briefing.graphs.briefing.fetch_articles", _make_fetch({}))
+    monkeypatch.setattr(
+        "adhd_briefing.graphs.briefing.fetch_single",
+        _make_fetch({"https://paste": [Article("https://paste", "Pasted", "t", "https://paste")]}),
+    )
+
+    graph = build_briefing_graph(db, FakeSummarizer())
+    state = await graph.ainvoke(_initial("u1", []))
+
+    titles = {a["title"] for a in state["summarized_articles"]}
+    assert titles == {"Pasted"}  # mimo seen — bo pinned
+
+
 async def test_respects_max_articles(db, monkeypatch):
     arts = [Article(f"https://a{i}", f"A{i}", "t", "https://s") for i in range(10)]
     monkeypatch.setattr(

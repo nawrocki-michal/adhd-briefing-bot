@@ -15,7 +15,7 @@ from adhd_briefing.config import settings
 from adhd_briefing.db import Database
 from adhd_briefing.graphs.state import BriefingState
 from adhd_briefing.llm import Summarizer
-from adhd_briefing.sources import fetch_articles  # patchowalne w testach
+from adhd_briefing.sources import fetch_articles, fetch_single  # patchowalne w testach
 
 
 def format_briefing(articles: list[dict]) -> str:
@@ -49,32 +49,50 @@ def build_briefing_graph(
 
     async def prepare(state: BriefingState) -> dict:
         # Węzeł wejściowy przed conditional-edge fan-outem (Send wymaga źródła).
-        return {}
+        # Ładuje inbox jednorazowy z DB — jeśli wywołujący nie podał go jawnie.
+        if state.get("pending_urls"):
+            return {}
+        return {"pending_urls": await db.get_pending(state["chat_id"])}
 
     def dispatch(state: BriefingState) -> list[Send]:
-        return [
-            Send("fetch_worker", {"url": url, "chat_id": state["chat_id"]})
+        chat_id = state["chat_id"]
+        # Stałe źródła: model „śledzę" → fetch_articles (z discovery feedu).
+        sends = [
+            Send("fetch_worker", {"url": url, "chat_id": chat_id, "mode": "feed"})
             for url in state["sources"]
         ]
+        # Inbox jednorazowy: model „streść mi to" → fetch_single (wprost, bez discovery).
+        sends += [
+            Send("fetch_worker", {"url": url, "chat_id": chat_id, "mode": "article"})
+            for url in state.get("pending_urls", [])
+        ]
+        return sends
 
     async def fetch_worker(state: dict) -> dict:
-        # Otrzymuje cząstkowy stan {"url","chat_id"} z Send().
-        articles = await fetch_articles(state["url"])
-        return {"raw_articles": [_to_dict(a) for a in articles]}
+        # Otrzymuje cząstkowy stan {"url","chat_id","mode"} z Send().
+        if state.get("mode") == "article":
+            articles = await fetch_single(state["url"])
+            pinned = True  # wklejone świadomie — omija filtr unseen
+        else:
+            articles = await fetch_articles(state["url"])
+            pinned = False
+        return {"raw_articles": [_to_dict(a, pinned=pinned) for a in articles]}
 
     async def filter_node(state: BriefingState) -> dict:
         chat_id = state["chat_id"]
-        # Deduplikacja w obrębie batcha (po URL).
-        seen: set[str] = set()
-        unique: list[dict] = []
+        # Deduplikacja w obrębie batcha (po URL); pinned ma pierwszeństwo przy kolizji.
+        by_url: dict[str, dict] = {}
         for art in state["raw_articles"]:
-            if art["url"] in seen:
-                continue
-            seen.add(art["url"])
-            unique.append(art)
-        # Deduplikacja względem historii użytkownika (seen_articles w DB).
-        unseen_urls = await db.filter_unseen(chat_id, [a["url"] for a in unique])
-        filtered = [a for a in unique if a["url"] in unseen_urls]
+            url = art["url"]
+            if url not in by_url:
+                by_url[url] = art
+            elif art.get("pinned"):
+                by_url[url] = {**by_url[url], "pinned": True}
+        unique = list(by_url.values())
+        # Dedup względem historii (seen_articles) — ale pinned (inbox) zawsze przechodzi.
+        candidates = [a["url"] for a in unique if not a.get("pinned")]
+        unseen_urls = await db.filter_unseen(chat_id, candidates)
+        filtered = [a for a in unique if a.get("pinned") or a["url"] in unseen_urls]
         return {"filtered_articles": filtered}
 
     def route_after_filter(state: BriefingState) -> str:
@@ -108,11 +126,12 @@ def build_briefing_graph(
     return builder.compile(checkpointer=checkpointer)
 
 
-def _to_dict(article) -> dict:
-    """Article (dataclass) → dict do stanu grafu."""
+def _to_dict(article, *, pinned: bool = False) -> dict:
+    """Article (dataclass) → dict do stanu grafu. pinned=True dla inboxa jednorazowego."""
     return {
         "url": article.url,
         "title": article.title,
         "content": article.content,
         "source_url": article.source_url,
+        "pinned": pinned,
     }

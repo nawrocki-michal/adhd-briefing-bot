@@ -43,7 +43,20 @@ Wszystko lokalne — **brak jeszcze hostingu (always-on) i automatycznego schedu
   - wykryta i naprawiona kontaminacja evala (przykład w wariancie używał case'a z golden setu)
   - wdrożony wariant C → standardowy eval **98/100**
 
-**Stan testów:** 57/57 pytest zielonych, ruff czysty.
+### Zarządzanie źródłami + inbox jednorazowy (M4.6)
+- [x] **Stałe źródła — inkrementalnie:** `/sources` (lista), `/addsource <url…>` (doklej, dedup),
+  `/removesource <nr|url>`. DB: `add_sources`/`remove_source` (read-modify-write listy JSON).
+  Domyka lukę: dotąd jedyną drogą był `/start`, który **nadpisywał** całą listę.
+- [x] **Inbox jednorazowy (capture):** bare-paste linku (bez komendy) → kolejka `pending_articles`
+  → dostarczane w najbliższym briefingu, potem czyszczone (one-shot). Tabela `pending_articles`.
+  - pobierane przez **`fetch_single`** (ScraperProvider wprost — omija auto-discovery feedu, które
+    dla URL-a konkretnego artykułu zwracało posty całej witryny zamiast tego tekstu)
+  - artykuły z inboxa są **pinned**: omijają filtr `seen_articles` (wklejone świadomie), ale po
+    dostawie trafiają do `seen` (nie wrócą w dziennym briefingu śledzonego źródła)
+  - oba strumienie (stałe źródła + inbox) wpadają do jednego briefingu; `prepare` doczytuje inbox z DB
+  - ⚠️ do czasu M5 „o wybranej godzinie" = przy ręcznym `/briefing`; scheduler dołoży automatyzm bez zmian w tej logice
+
+**Stan testów:** 69/69 pytest zielonych (było 57; +12 dla źródeł/inboxa), ruff czysty.
 
 ---
 

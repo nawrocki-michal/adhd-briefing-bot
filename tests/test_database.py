@@ -24,7 +24,10 @@ async def test_init_enables_wal(db):
 
 
 async def test_init_creates_all_tables(db):
-    expected = {"users", "briefings", "articles", "seen_articles", "actions", "briefing_runs"}
+    expected = {
+        "users", "briefings", "articles", "seen_articles",
+        "actions", "briefing_runs", "pending_articles",
+    }
     async with aiosqlite.connect(db.path) as conn:
         async with conn.execute("SELECT name FROM sqlite_master WHERE type='table'") as cur:
             tables = {row[0] async for row in cur}
@@ -58,6 +61,70 @@ async def test_upsert_overwrites(db):
 
 async def test_get_missing_user_returns_none(db):
     assert await db.get_user("nope") is None
+
+
+# --- zarządzanie źródłami (add/remove, inkrementalne) ---
+
+
+async def test_add_sources_appends_without_overwrite(db):
+    await db.upsert_user("123", ["AI"], ["https://a.com"], "08:00", "Europe/Warsaw")
+    merged = await db.add_sources("123", ["https://b.com"])
+    assert merged == ["https://a.com", "https://b.com"]  # stare zachowane
+    user = await db.get_user("123")
+    assert user["sources"] == ["https://a.com", "https://b.com"]
+
+
+async def test_add_sources_dedupes_list(db):
+    await db.upsert_user("123", [], ["https://a.com"], "08:00", "Europe/Warsaw")
+    merged = await db.add_sources("123", ["https://a.com", "https://b.com"])
+    assert merged == ["https://a.com", "https://b.com"]  # bez duplikatu a.com
+
+
+async def test_add_sources_no_user_is_noop(db):
+    assert await db.add_sources("ghost", ["https://a.com"]) == []
+
+
+async def test_remove_source(db):
+    await db.upsert_user("123", [], ["https://a.com", "https://b.com"], "08:00", "Europe/Warsaw")
+    remaining = await db.remove_source("123", "https://a.com")
+    assert remaining == ["https://b.com"]
+
+
+async def test_remove_source_absent_is_noop(db):
+    await db.upsert_user("123", [], ["https://a.com"], "08:00", "Europe/Warsaw")
+    assert await db.remove_source("123", "https://nope.com") == ["https://a.com"]
+
+
+# --- inbox jednorazowy (pending_articles) ---
+
+
+async def test_add_and_get_pending(db):
+    total = await db.add_pending("123", ["https://x.com", "https://y.com"])
+    assert total == 2
+    assert await db.get_pending("123") == ["https://x.com", "https://y.com"]
+
+
+async def test_pending_dedupes(db):
+    await db.add_pending("123", ["https://x.com"])
+    total = await db.add_pending("123", ["https://x.com"])  # PRIMARY KEY → ignore
+    assert total == 1
+
+
+async def test_pending_is_per_user(db):
+    await db.add_pending("123", ["https://x.com"])
+    assert await db.get_pending("456") == []
+
+
+async def test_clear_pending(db):
+    await db.add_pending("123", ["https://x.com", "https://y.com"])
+    await db.clear_pending("123", ["https://x.com"])
+    assert await db.get_pending("123") == ["https://y.com"]
+
+
+async def test_clear_pending_empty_is_noop(db):
+    await db.add_pending("123", ["https://x.com"])
+    await db.clear_pending("123", [])
+    assert await db.get_pending("123") == ["https://x.com"]
 
 
 # --- dedup ---

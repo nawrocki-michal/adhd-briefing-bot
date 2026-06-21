@@ -26,6 +26,7 @@ async def run(sources: list[str], chat_id: str) -> str:
         {
             "chat_id": chat_id,
             "sources": sources,
+            "pending_urls": [],
             "raw_articles": [],
             "filtered_articles": [],
             "summarized_articles": [],

@@ -31,6 +31,9 @@ PYTHONPATH=src .venv/bin/python -m adhd_briefing.cli --chat-id me --sources "htt
 
 # Telegram bot (polling, always-on dopóki proces żyje)
 PYTHONPATH=src .venv/bin/python -m adhd_briefing.bot
+# Komendy bota: /start (onboarding), /briefing (briefing teraz),
+#   /sources /addsource <url…> /removesource <nr|url> (stałe źródła — inkrementalnie),
+#   oraz: wklej linki bez komendy → trafiają do inboxa, dostarczane w najbliższym briefingu
 
 # Evals (wymagają ANTHROPIC_API_KEY, robią realne wywołania — kosztują)
 PYTHONPATH=src .venv/bin/python -m evals.run validate        # czy eval odróżnia dobre/złe (oczek. 8/8)

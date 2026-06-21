@@ -41,6 +41,15 @@ CREATE TABLE IF NOT EXISTS seen_articles (
     PRIMARY KEY (chat_id, url)
 );
 
+-- Inbox jednorazowy — artykuły wklejone przez użytkownika, do dostarczenia
+-- w najbliższym briefingu (one-shot: czyszczone po dostawie). Model „streść mi to".
+CREATE TABLE IF NOT EXISTS pending_articles (
+    chat_id  TEXT REFERENCES users(chat_id),
+    url      TEXT NOT NULL,
+    added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (chat_id, url)
+);
+
 -- Akcje użytkownika (faza A — gamifikacja)
 CREATE TABLE IF NOT EXISTS actions (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -75,6 +75,75 @@ class Database:
                 rows = await cur.fetchall()
         return [dict(r) for r in rows]
 
+    async def add_sources(self, chat_id: str, urls: list[str]) -> list[str]:
+        """Dokleja źródła do listy użytkownika (bez nadpisywania). Zwraca pełną listę.
+
+        Deduplikuje samą listę (zachowując kolejność: istniejące + nowe).
+        No-op jeśli użytkownik nie istnieje albo brak URL-i do dodania.
+        """
+        user = await self.get_user(chat_id)
+        if user is None:
+            return []
+        current = user["sources"]
+        merged = list(current)
+        for url in urls:
+            if url not in merged:
+                merged.append(url)
+        if merged != current:
+            await self._set_sources(chat_id, merged)
+        return merged
+
+    async def remove_source(self, chat_id: str, url: str) -> list[str]:
+        """Usuwa pojedyncze źródło. Zwraca pozostałą listę (bez zmian jeśli nie było)."""
+        user = await self.get_user(chat_id)
+        if user is None:
+            return []
+        remaining = [s for s in user["sources"] if s != url]
+        if remaining != user["sources"]:
+            await self._set_sources(chat_id, remaining)
+        return remaining
+
+    async def _set_sources(self, chat_id: str, sources: list[str]) -> None:
+        async with aiosqlite.connect(self.path) as db:
+            await db.execute(
+                "UPDATE users SET sources = ? WHERE chat_id = ?",
+                (json.dumps(sources), chat_id),
+            )
+            await db.commit()
+
+    # --- inbox jednorazowy (pending_articles) ---
+
+    async def add_pending(self, chat_id: str, urls: list[str]) -> int:
+        """Dodaje URL-e do inboxa jednorazowego. Zwraca liczbę zakolejkowanych łącznie."""
+        async with aiosqlite.connect(self.path) as db:
+            for url in urls:
+                await db.execute(
+                    "INSERT OR IGNORE INTO pending_articles (chat_id, url) VALUES (?, ?)",
+                    (chat_id, url),
+                )
+            await db.commit()
+        return len(await self.get_pending(chat_id))
+
+    async def get_pending(self, chat_id: str) -> list[str]:
+        async with aiosqlite.connect(self.path) as db:
+            async with db.execute(
+                "SELECT url FROM pending_articles WHERE chat_id = ? ORDER BY added_at",
+                (chat_id,),
+            ) as cur:
+                return [row[0] for row in await cur.fetchall()]
+
+    async def clear_pending(self, chat_id: str, urls: list[str]) -> None:
+        """Usuwa z inboxa dostarczone URL-e (po udanej wysyłce briefingu)."""
+        if not urls:
+            return
+        placeholders = ",".join("?" * len(urls))
+        async with aiosqlite.connect(self.path) as db:
+            await db.execute(
+                f"DELETE FROM pending_articles WHERE chat_id = ? AND url IN ({placeholders})",
+                (chat_id, *urls),
+            )
+            await db.commit()
+
     # --- deduplication (seen_articles) ---
 
     async def mark_seen(self, chat_id: str, url: str) -> None:
