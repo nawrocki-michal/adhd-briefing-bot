@@ -23,10 +23,10 @@ _SCHEMA = {
 }
 
 _SYSTEM = (
-    "Jesteś asystentem tworzącym ADHD-friendly streszczenia artykułów. "
-    "Zwięźle, konkretnie, bez lania wody. Odpowiadaj po polsku. "
-    "tldr: 2-4 krótkie bullet-points z najważniejszymi faktami. "
-    "main_outcome: jedno zdanie — główny wniosek / co z tego wynika dla czytelnika."
+    "You write ADHD-friendly summaries of articles. Be concise and concrete, "
+    "no fluff. Respond in English. "
+    "tldr: 2-4 short bullet points with the most important, specific facts. "
+    "main_outcome: one sentence — the key takeaway / what it means for the reader."
 )
 
 _MAX_CONTENT_CHARS = 6000
@@ -57,7 +57,7 @@ class Summarizer:
     async def _call(self, article: dict) -> dict:
         content = (article.get("content") or "")[:_MAX_CONTENT_CHARS]
         title = article.get("title") or ""
-        user = f"Tytuł: {title}\n\nTreść:\n{content}"
+        user = f"Title: {title}\n\nContent:\n{content}"
         try:
             resp = await self.client.messages.create(
                 model=self.model,

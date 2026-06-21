@@ -58,7 +58,7 @@ async def _reply_onboarding(update: Update, result: dict) -> None:
         await update.message.reply_text(interrupts[0].value)
     elif result.get("setup_complete"):
         await update.message.reply_text(
-            "✅ Gotowe! Skonfigurowane. Wpisz /briefing aby dostać podgląd teraz."
+            "✅ All set! Send /briefing to get a preview now."
         )
 
 
@@ -86,7 +86,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     snapshot = await graph.aget_state(config)
     if not snapshot.next:  # onboarding nie trwa
         await update.message.reply_text(
-            "Wpisz /start aby skonfigurować, lub /briefing aby dostać briefing."
+            "Send /start to set up, or /briefing to get your briefing."
         )
         return
     result = await graph.ainvoke(Command(resume=update.message.text), config)
@@ -98,10 +98,10 @@ async def briefing(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     db: Database = context.bot_data["db"]
     user = await db.get_user(chat_id)
     if not user or not user.get("sources"):
-        await update.message.reply_text("Najpierw /start — nie masz jeszcze skonfigurowanych źródeł.")
+        await update.message.reply_text("First send /start — you don't have any sources set up yet.")
         return
 
-    await update.message.reply_text("⏳ Generuję briefing…")
+    await update.message.reply_text("⏳ Generating your briefing…")
     graph = context.bot_data["briefing"]
     state = await graph.ainvoke(
         _initial_briefing_state(chat_id, user["sources"]),

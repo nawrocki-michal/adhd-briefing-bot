@@ -21,11 +21,11 @@ from adhd_briefing.sources import fetch_articles  # patchowalne w testach
 def format_briefing(articles: list[dict]) -> str:
     """Składa ADHD-friendly briefing z listy streszczonych artykułów."""
     if not articles:
-        return "✅ Nic nowego dzisiaj — wszystko na bieżąco!"
+        return "✅ Nothing new today — you're all caught up!"
 
-    lines = ["📋 *Twój briefing*", ""]
+    lines = ["📋 *Your briefing*", ""]
     for i, art in enumerate(articles, 1):
-        lines.append(f"{i}. *{art.get('title') or 'Bez tytułu'}*")
+        lines.append(f"{i}. *{art.get('title') or 'Untitled'}*")
         outcome = art.get("main_outcome")
         if outcome:
             lines.append(f"   → {outcome}")

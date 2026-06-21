@@ -50,7 +50,7 @@ def _initial(chat_id: str, sources: list[str]) -> dict:
 
 
 def test_format_empty():
-    assert "Nic nowego" in format_briefing([])
+    assert "Nothing new" in format_briefing([])
 
 
 def test_format_includes_articles():
@@ -123,7 +123,7 @@ async def test_nothing_new(db, monkeypatch):
     monkeypatch.setattr("adhd_briefing.graphs.briefing.fetch_articles", _make_fetch({}))
     graph = build_briefing_graph(db, FakeSummarizer())
     state = await graph.ainvoke(_initial("u1", ["https://empty"]))
-    assert "Nic nowego" in state["briefing"]
+    assert "Nothing new" in state["briefing"]
     assert state["summarized_articles"] == []
 
 

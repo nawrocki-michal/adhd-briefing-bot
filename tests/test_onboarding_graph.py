@@ -70,15 +70,15 @@ async def test_full_onboarding_flow_saves_user(db):
 
     # start → interrupt na pytanie o tematy
     r = await graph.ainvoke(init, config)
-    assert "tematy" in r["__interrupt__"][0].value.lower()
+    assert "topics" in r["__interrupt__"][0].value.lower()
 
     # tematy → interrupt na źródła
     r = await graph.ainvoke(Command(resume="AI, growth"), config)
-    assert "źródła" in r["__interrupt__"][0].value.lower()
+    assert "sources" in r["__interrupt__"][0].value.lower()
 
     # źródła → interrupt na godzinę
     r = await graph.ainvoke(Command(resume="https://x.com\nhttps://y.com"), config)
-    assert "godzinie" in r["__interrupt__"][0].value.lower()
+    assert "time" in r["__interrupt__"][0].value.lower()
 
     # godzina → confirm → koniec
     r = await graph.ainvoke(Command(resume="7:30"), config)
@@ -109,10 +109,10 @@ async def test_sources_node_reprompts_on_no_urls(db):
     await graph.ainvoke(Command(resume="AI"), config)  # → pyta o źródła
     # odpowiedź bez URL-i → ponowne pytanie o źródła
     r = await graph.ainvoke(Command(resume="nie mam linków"), config)
-    assert "źródła" in r["__interrupt__"][0].value.lower()
+    assert "sources" in r["__interrupt__"][0].value.lower()
     # teraz poprawny URL → przechodzi dalej (pyta o godzinę)
     r = await graph.ainvoke(Command(resume="https://z.com"), config)
-    assert "godzinie" in r["__interrupt__"][0].value.lower()
+    assert "time" in r["__interrupt__"][0].value.lower()
 
 
 async def test_threads_isolated_per_user(db):

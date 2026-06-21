@@ -14,12 +14,12 @@ from adhd_briefing.config import settings
 from adhd_briefing.db import Database
 from adhd_briefing.graphs.state import OnboardingState
 
-_TOPICS_Q = "Cześć! 👋 Jakie tematy Cię interesują? (np. AI, product management, startupy)"
+_TOPICS_Q = "Hi! 👋 What topics are you interested in? (e.g. AI, product management, startups)"
 _SOURCES_Q = (
-    "Super. Teraz wklej źródła które czytasz — URL-e stron lub RSS,\n"
-    "rozdzielone przecinkami lub nowymi liniami."
+    "Great. Now paste the sources you follow — links to sites or RSS feeds,\n"
+    "separated by commas or new lines."
 )
-_SCHEDULE_Q = "O której godzinie wysyłać briefing? (np. 07:30, domyślnie 08:00)"
+_SCHEDULE_Q = "What time should I send your briefing? (e.g. 07:30, default 08:00)"
 
 
 def parse_topics(text: str) -> list[str]:
