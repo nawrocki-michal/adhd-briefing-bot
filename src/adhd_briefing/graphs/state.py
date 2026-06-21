@@ -18,3 +18,14 @@ class BriefingState(TypedDict):
     filtered_articles: list[dict]
     summarized_articles: list[dict]
     briefing: str
+
+
+class OnboardingState(TypedDict):
+    """Stan grafu onboardingu (konwersacyjny, human-in-the-loop)."""
+
+    chat_id: str
+    topics: list[str]
+    sources: list[str]
+    briefing_time: str  # "07:30"
+    timezone: str  # "Europe/Warsaw" — wymagane dla schedulera (M5)
+    setup_complete: bool

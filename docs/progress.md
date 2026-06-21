@@ -22,8 +22,9 @@
 
 ## Do zrobienia
 
-### Następny krok — M4 (Telegram + OnboardingGraph)
-- [ ] `NotificationService`/`TelegramNotifier`, OnboardingGraph z interrupt() + AsyncSqliteSaver, bot.py, delivery_node
+### Następny krok — M4.5 (auto-discovery RSS) → potem M5 (scheduler)
+- [ ] SourceProvider: z adresu bloga/homepage znajdź feed RSS (link rel=alternate + /feed)
+- [ ] M5: scheduler (APScheduler + SqliteJobStore, timezone-aware, idempotencja)
 
 ### MVP — Faza C (Capture)
 - [x] **M0** — repo (`git init`, `.gitignore`, `pyproject.toml`, `.env.example`, `config.py`), `pip install -e .` OK
@@ -38,6 +39,12 @@
   - LangGraph 1.x: Send() z funkcji routującej conditional edge (Bug #5 nieaktualny dla 1.x)
   - 8/8 testów grafu; **realny briefing po polsku z 5 URL-i przez Claude API**; dedup zweryfikowany na żywo
   - całość: 37/37 testów zielonych
+- [x] **M4** — Telegram + OnboardingGraph
+  - `notify/` (NotificationService + TelegramNotifier z fallbackiem Markdown→plain)
+  - `graphs/onboarding.py` (interrupt() HITL, parsery, zapis usera), `bot.py` (/start, /briefing, on_text)
+  - AsyncSqliteSaver z trwałym połączeniem (Bug #3), thread_id per user (Bug #2)
+  - 14/14 nowych testów; **bot przetestowany na żywo na Telegramie — działa**
+  - pytest: `pythonpath=["src"]` (niezależne od editable .pth); całość 51/51
 - [ ] `OnboardingGraph` z `SqliteSaver` i `interrupt()`
 - [ ] `BriefingGraph` z Send() fan-out i reducerami
 - [ ] Scheduler (APScheduler + SqliteJobStore, timezone-aware)
