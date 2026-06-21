@@ -6,6 +6,24 @@ Portfolio project pokazujący umiejętności techniczne (multi-agent AI) rekrute
 Właściciel: PM rozwijający umiejętności techniczne, z ADHD — jednocześnie główny użytkownik.
 Cel: działający, self-hostable bot na GitHubie, który realnie rozwiązuje codzienny problem.
 
+## ⚡ Aktualny stan (2026-06-21) — CZYTAJ NAJPIERW
+
+**MVP Faza C działa end-to-end lokalnie.** Telegram bot: `/start` (onboarding) → `/briefing`
+(feedy → Haiku → ADHD-friendly briefing). Treści po **angielsku**. Jakość mierzona evalem: **98/100**.
+
+- **Pełny stan + następne kroki:** `docs/progress.md`
+- **Jak uruchomić / mapa projektu / komendy:** `docs/dev-guide.md`
+- **Wytyczne treści + rubryka evals:** `docs/adhd-content-guidelines.md`
+
+**Zrobione:** M0 bootstrap, M1 SourceProvider (+auto-discovery RSS), M2 SQLite, M3 BriefingGraph+CLI,
+M4 Telegram+Onboarding, i18n→EN, M3.5 eval harness + A/B promptów. 57/57 testów, ruff czysty.
+
+**Nierozstrzygnięte / następne:** (1) 🔴 **hosting always-on** (Fly.io vs Oracle VM vs własny sprzęt —
+Vercel odrzucony), (2) tone-as-user-choice + read-time, (3) M5 scheduler, (4) M6 README+Dockerfile.
+
+**Konwencja uruchamiania:** testy przez `pytest` (ma `pythonpath=["src"]`); moduły przez
+`PYTHONPATH=src .venv/bin/python -m adhd_briefing.<bot|cli>` lub `-m evals.<run|prompt_variants>`.
+
 ## Stack techniczny (decyzje ostateczne)
 
 | Element | Wybór | Uwaga |
@@ -64,8 +82,15 @@ checkpointer = SqliteSaver.from_conn_string("adhd.db")
 conn.execute("PRAGMA journal_mode=WAL")
 ```
 
-### Bug #5 — DispatcherNode musi być węzłem (nie edge function)
-`Send()` można zwrócić tylko z węzła, nie z conditional edge.
+### Bug #5 — NIEAKTUALNE dla LangGraph 1.x ⚠️
+Architektura zakładała, że `Send()` wymaga osobnego węzła dispatcher. **W LangGraph 1.x
+(zainstalowane 1.2.6) `Send()` zwraca się z funkcji routującej `add_conditional_edges`** —
+tak jest zaimplementowane (`graphs/briefing.py`: `prepare` → conditional edge `dispatch` →
+`fetch_worker`). Zweryfikowane przez context7. Bug #1–#4 nadal obowiązują.
+
+### Dodatkowy fix (M4.5) — RSSProvider pobiera feed przez httpx z UA przeglądarki
+feedparser z domyślnym UA bywa blokowany (403) przez Substack/O'Reilly → feed wracał pusty.
+Pobieramy przez `httpx` z UA przeglądarki, potem parsujemy tekst. Patrz `sources/rss.py`.
 
 ## Schemat SQLite (znormalizowany — nie upraszczaj)
 
@@ -88,21 +113,26 @@ class NotificationService(ABC): # TelegramNotifier | (przyszłość: WhatsApp)
 - `pyproject.toml`
 - Rate limiting dla Claude API (zapobiega 429 przy wielu źródłach)
 
-## Kolejność implementacji MVP (Faza C)
+## Kolejność implementacji MVP (Faza C) — STATUS
 
-1. `SourceProvider` (RSS + trafilatura) — **zacząć od tego, największe ryzyko**
-2. Znormalizowany schemat SQLite + migracje
-3. `OnboardingGraph` z SqliteSaver i interrupt()
-4. `BriefingGraph` z Send() fan-out i reducerami
-5. Scheduler (APScheduler + SqliteJobStore)
-6. Telegram bot integration
-7. Dockerfile, .env.example, README
+1. ✅ `SourceProvider` (RSS + trafilatura + auto-discovery)
+2. ✅ Znormalizowany schemat SQLite
+3. ✅ `OnboardingGraph` z AsyncSqliteSaver i interrupt()
+4. ✅ `BriefingGraph` z Send() fan-out i reducerami
+5. ⬜ Scheduler (APScheduler + SQLAlchemyJobStore) — **M5, do zrobienia**
+6. ✅ Telegram bot integration
+7. ⬜ Dockerfile + README — **M6, do zrobienia** (+ decyzja hostingowa)
+
+Aktualny tracker: `docs/progress.md`.
 
 ## Pliki projektu
 
 - `brainstorming/adhd-app-brainstorming.md` — pełny brainstorming, model CRA
 - `docs/architecture.md` — szczegółowa architektura, pełny DDL, kod snippety
 - `docs/progress.md` — tracker postępów (aktualizuj po każdym ukończonym kroku)
+- `docs/dev-guide.md` — setup, komendy, mapa projektu, gdzie są prompty
+- `docs/adhd-content-guidelines.md` — wytyczne treści ADHD + rubryka evals
+- `evals/` — eval harness (golden set, judge, A/B promptów) — NIE w pytest (realne LLM calls)
 
 ## Narzędzia i skille
 
@@ -122,8 +152,11 @@ Wywołanie: najpierw `resolve-library-id`, potem `query-docs`.
 
 ## Konwencje pracy
 
-- Przed implementacją czegokolwiek z LangGraph: sprawdź context7 (`/websites/langchain_oss_python_langgraph`)
+- Przed implementacją czegokolwiek z LangGraph/SDK: sprawdź context7 (`/websites/langchain_oss_python_langgraph`)
 - Po każdym ukończonym kroku: zaktualizuj `docs/progress.md`
+- **Treści i UI bota po angielsku** (user komunikuje się po polsku, ale produkt jest EN)
+- **Zmiana promptu summarizera → zmierz evalem** (`evals/run.py summarizer`); nie commituj „na czuja"
 - SourceProvider testuj na rzeczywistych URL-ach użytkownika, nie mockach
 - Nie łącz OnboardingGraph z BriefingGraph — to świadoma decyzja architektoniczna
 - Faza C (Capture) jako MVP — nie implementuj faz R i A dopóki C nie działa
+- Commit per milestone (user tak woli); sekrety tylko w `.env` (nigdy w `.env.example`)
