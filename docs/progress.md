@@ -1,7 +1,11 @@
 # ADHD Briefing App — Progress
 
-**Ostatnia aktualizacja:** 2026-06-21
+**Ostatnia aktualizacja:** 2026-06-22
 **Status:** MVP Faza C (Capture) działa end-to-end + eval harness. Pozostało: hosting, scheduler, packaging.
+
+> ▶️ **Następna sesja — start tutaj:** (1) przeklik na żywo tonu + read-time (`/tone warm` →
+> `/briefing`; patrz blok końca sesji w CLAUDE.md), (2) **M5 scheduler** — PRZED kodowaniem
+> context7 dla APScheduler + integracja z event-loopem python-telegram-bot. Reszta TODO niżej.
 
 ---
 

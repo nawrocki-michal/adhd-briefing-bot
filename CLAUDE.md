@@ -6,10 +6,11 @@ Portfolio project pokazujący umiejętności techniczne (multi-agent AI) rekrute
 Właściciel: PM rozwijający umiejętności techniczne, z ADHD — jednocześnie główny użytkownik.
 Cel: działający, self-hostable bot na GitHubie, który realnie rozwiązuje codzienny problem.
 
-## ⚡ Aktualny stan (2026-06-21) — CZYTAJ NAJPIERW
+## ⚡ Aktualny stan (2026-06-22) — CZYTAJ NAJPIERW
 
 **MVP Faza C działa end-to-end lokalnie.** Telegram bot: `/start` (onboarding) → `/briefing`
-(feedy → Haiku → ADHD-friendly briefing). Treści po **angielsku**. Jakość mierzona evalem: **98/100**.
+(feedy → Haiku → ADHD-friendly briefing). Treści po **angielsku**. Jakość mierzona evalem: **~94–98/100**
+(wariancja 2-case golden setu; neutral prompt niezmieniony od wdrożenia wariantu C).
 
 - **Pełny stan + następne kroki:** `docs/progress.md`
 - **Jak uruchomić / mapa projektu / komendy:** `docs/dev-guide.md`
@@ -25,8 +26,19 @@ read-time per artykuł**. 86/86 testów, ruff czysty.
 Vercel odrzucony), (2) M5 scheduler (odblokuje „briefing o godzinie" — dziś inbox konsumuje ręczny
 `/briefing`), (3) M6 README+Dockerfile.
 
-> ⚠️ **Stan na koniec sesji 2026-06-21:** M4.6 zaimplementowane, przetestowane (69/69) i ZACOMMITOWANE,
-> ale **NIE przeklikane na żywym Telegramie** — pierwszy krok jutro: `/start` → `/addsource` → wklej link → `/briefing`.
+> ⚠️ **Stan na koniec sesji 2026-06-22 — START TUTAJ NASTĘPNYM RAZEM:**
+> - **Zrobione i zacommitowane dziś:** (a) fix bug — BriefingGraph był checkpointowany, reducer
+>   `operator.add` akumulował stare/usunięte źródła między `/briefing` (svpg wracało); briefing
+>   teraz bez checkpointera (Bug #6). (b) M4.6 przeklikane na żywym Telegramie — działa.
+>   (c) tone-as-user-choice + read-time (commit `693e2ab`). 86/86 testów, ruff czysty.
+> - **Do przeklikania na żywo (NIE zrobione):** ton + read-time. Bot stoi — odpal
+>   `PYTHONPATH=src .venv/bin/python -m adhd_briefing.bot`, potem: `/tone` → `/tone warm` →
+>   `/briefing` (sprawdź „⏱ N min read" i cieplejszy ton); opcjonalnie `/start` od nowa, by
+>   zobaczyć nowy krok wyboru tonu w onboardingu.
+> - **Następny milestone:** 🔴 M5 scheduler (APScheduler + SQLAlchemyJobStore, timezone-aware,
+>   idempotencja przez `briefing_runs` — tabela już jest). PRZED kodowaniem: context7 dla
+>   APScheduler + integracja z event-loopem python-telegram-bot (job wywołuje tę samą logikę
+>   co handler `/briefing`). Potem M6 (README+Dockerfile) i decyzja hostingowa (Fly.io/Oracle/sprzęt).
 
 **Konwencja uruchamiania:** testy przez `pytest` (ma `pythonpath=["src"]`); moduły przez
 `PYTHONPATH=src .venv/bin/python -m adhd_briefing.<bot|cli>` lub `-m evals.<run|prompt_variants>`.
