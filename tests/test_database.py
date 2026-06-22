@@ -63,6 +63,44 @@ async def test_get_missing_user_returns_none(db):
     assert await db.get_user("nope") is None
 
 
+# --- ton briefingu (tone) ---
+
+
+async def test_tone_defaults_to_neutral(db):
+    await db.upsert_user("123", ["AI"], [], "08:00", "Europe/Warsaw")
+    user = await db.get_user("123")
+    assert user["tone"] == "neutral"
+
+
+async def test_upsert_with_tone(db):
+    await db.upsert_user("123", ["AI"], [], "08:00", "Europe/Warsaw", tone="warm")
+    assert (await db.get_user("123"))["tone"] == "warm"
+
+
+async def test_set_tone_preserves_rest(db):
+    await db.upsert_user("123", ["AI"], ["https://a.com"], "08:00", "Europe/Warsaw")
+    await db.set_tone("123", "direct")
+    user = await db.get_user("123")
+    assert user["tone"] == "direct"
+    assert user["sources"] == ["https://a.com"]  # reszta profilu nietknięta
+
+
+async def test_migrate_adds_tone_to_legacy_users(tmp_path):
+    """Stara baza bez kolumny tone → init() dokłada ją z defaultem neutral."""
+    path = str(tmp_path / "legacy.db")
+    async with aiosqlite.connect(path) as conn:
+        await conn.execute(
+            "CREATE TABLE users (chat_id TEXT PRIMARY KEY, topics TEXT, sources TEXT, "
+            "briefing_time TEXT, timezone TEXT, created_at DATETIME)"
+        )
+        await conn.execute("INSERT INTO users (chat_id) VALUES ('old')")
+        await conn.commit()
+    database = Database(path)
+    await database.init()  # migracja
+    user = await database.get_user("old")
+    assert user["tone"] == "neutral"
+
+
 # --- zarządzanie źródłami (add/remove, inkrementalne) ---
 
 

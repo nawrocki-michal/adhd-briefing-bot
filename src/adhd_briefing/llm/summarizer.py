@@ -42,6 +42,22 @@ _SYSTEM = (
     "main_outcome ≤25 words, one sentence. Each bullet = one idea."
 )
 
+# Ton jako wybór użytkownika (onboarding/​/tone). neutral = bazowy prompt 1:1 (zachowuje
+# zmierzony evalem wynik 98/100); warm/direct doklejają cienką warstwę głosu, NIGDY kosztem
+# faktów/konkretu. Zmiana któregokolwiek suffiksu → zmierz evalem (evals/run.py summarizer).
+_TONE_SUFFIXES = {
+    "neutral": "",
+    "warm": (
+        "\n\nVoice: warm and encouraging. Speak to the reader as 'you' and add a light, "
+        "supportive touch — but never trade facts, numbers, or specificity for warmth."
+    ),
+    "direct": (
+        "\n\nVoice: blunt and direct. Terse, no filler, no hedging, no softeners. "
+        "Maximum signal per word."
+    ),
+}
+DEFAULT_TONE = "neutral"
+
 _MAX_CONTENT_CHARS = 6000
 
 
@@ -63,21 +79,22 @@ class Summarizer:
         self.system_prompt = system_prompt or _SYSTEM
         self._sem = asyncio.Semaphore(concurrency or settings.llm_concurrency)
 
-    async def summarize(self, article: dict) -> dict:
+    async def summarize(self, article: dict, tone: str = DEFAULT_TONE) -> dict:
         """Zwraca artykuł wzbogacony o tldr (list[str]) i main_outcome (str)."""
         async with self._sem:
-            data = await self._call(article)
+            data = await self._call(article, tone)
         return {**article, "tldr": data["tldr"], "main_outcome": data["main_outcome"]}
 
-    async def _call(self, article: dict) -> dict:
+    async def _call(self, article: dict, tone: str = DEFAULT_TONE) -> dict:
         content = (article.get("content") or "")[:_MAX_CONTENT_CHARS]
         title = article.get("title") or ""
         user = f"Title: {title}\n\nContent:\n{content}"
+        system = self.system_prompt + _TONE_SUFFIXES.get(tone, "")
         try:
             resp = await self.client.messages.create(
                 model=self.model,
                 max_tokens=1024,
-                system=self.system_prompt,
+                system=system,
                 messages=[{"role": "user", "content": user}],
                 output_config={"format": {"type": "json_schema", "schema": _SCHEMA}},
             )

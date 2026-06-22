@@ -18,6 +18,12 @@ from adhd_briefing.llm import Summarizer
 from adhd_briefing.sources import fetch_articles, fetch_single  # patchowalne w testach
 
 
+def estimate_read_time(content: str, wpm: int = 200) -> int:
+    """Szacuje czas czytania w minutach (≈200 wpm). Min. 1 min; przybliżone dla feedów."""
+    words = len((content or "").split())
+    return max(1, round(words / wpm)) if words else 1
+
+
 def format_briefing(articles: list[dict]) -> str:
     """Składa ADHD-friendly briefing z listy streszczonych artykułów."""
     if not articles:
@@ -25,7 +31,8 @@ def format_briefing(articles: list[dict]) -> str:
 
     lines = ["📋 *Your briefing*", ""]
     for i, art in enumerate(articles, 1):
-        lines.append(f"{i}. *{art.get('title') or 'Untitled'}*")
+        read_min = estimate_read_time(art.get("content") or "")
+        lines.append(f"{i}. *{art.get('title') or 'Untitled'}*  ·  ⏱ {read_min} min read")
         outcome = art.get("main_outcome")
         if outcome:
             lines.append(f"   → {outcome}")
@@ -102,7 +109,8 @@ def build_briefing_graph(
         import asyncio
 
         selected = state["filtered_articles"][:limit]
-        results = await asyncio.gather(*(summarizer.summarize(a) for a in selected))
+        tone = state.get("tone") or "neutral"
+        results = await asyncio.gather(*(summarizer.summarize(a, tone) for a in selected))
         return {"summarized_articles": list(results)}
 
     async def format_node(state: BriefingState) -> dict:

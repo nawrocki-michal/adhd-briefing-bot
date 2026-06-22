@@ -9,6 +9,7 @@ from adhd_briefing.graphs.onboarding import (
     build_onboarding_graph,
     normalize_time,
     parse_sources,
+    parse_tone,
     parse_topics,
 )
 
@@ -28,6 +29,21 @@ def test_parse_sources_keeps_only_urls():
 
 def test_parse_sources_empty():
     assert parse_sources("brak linków tutaj") == []
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("1", "neutral"),
+        ("2", "warm"),
+        ("3", "direct"),
+        ("warm", "warm"),
+        ("Direct please", "direct"),
+        ("bez sensu", "neutral"),  # fallback
+    ],
+)
+def test_parse_tone(raw, expected):
+    assert parse_tone(raw) == expected
 
 
 @pytest.mark.parametrize(
@@ -65,6 +81,7 @@ async def test_full_onboarding_flow_saves_user(db):
         "sources": [],
         "briefing_time": "",
         "timezone": "",
+        "tone": "neutral",
         "setup_complete": False,
     }
 
@@ -80,8 +97,12 @@ async def test_full_onboarding_flow_saves_user(db):
     r = await graph.ainvoke(Command(resume="https://x.com\nhttps://y.com"), config)
     assert "time" in r["__interrupt__"][0].value.lower()
 
-    # godzina → confirm → koniec
+    # godzina → interrupt na ton
     r = await graph.ainvoke(Command(resume="7:30"), config)
+    assert "sound" in r["__interrupt__"][0].value.lower()
+
+    # ton → confirm → koniec
+    r = await graph.ainvoke(Command(resume="2"), config)
     assert r.get("setup_complete") is True
     assert "__interrupt__" not in r
 
@@ -91,6 +112,7 @@ async def test_full_onboarding_flow_saves_user(db):
     assert user["sources"] == ["https://x.com", "https://y.com"]
     assert user["briefing_time"] == "07:30"
     assert user["timezone"]  # ustawione z default_timezone
+    assert user["tone"] == "warm"  # "2" → warm
 
 
 async def test_sources_node_reprompts_on_no_urls(db):
@@ -102,6 +124,7 @@ async def test_sources_node_reprompts_on_no_urls(db):
         "sources": [],
         "briefing_time": "",
         "timezone": "",
+        "tone": "neutral",
         "setup_complete": False,
     }
 
@@ -123,6 +146,7 @@ async def test_threads_isolated_per_user(db):
         "sources": [],
         "briefing_time": "",
         "timezone": "",
+        "tone": "neutral",
         "setup_complete": False,
     }
     # user A i B onboardują się równolegle na osobnych thread_id

@@ -22,7 +22,7 @@ from telegram.ext import (
 from adhd_briefing.config import settings
 from adhd_briefing.db import Database
 from adhd_briefing.graphs.briefing import build_briefing_graph
-from adhd_briefing.graphs.onboarding import build_onboarding_graph, parse_sources
+from adhd_briefing.graphs.onboarding import build_onboarding_graph, parse_sources, parse_tone
 from adhd_briefing.llm import Summarizer
 from adhd_briefing.models import Article
 from adhd_briefing.notify import TelegramNotifier
@@ -41,10 +41,11 @@ def _briefing_config(chat_id: str) -> dict:
     return {"configurable": {"thread_id": f"briefing_{chat_id}"}}
 
 
-def _initial_briefing_state(chat_id: str, sources: list[str]) -> dict:
+def _initial_briefing_state(chat_id: str, sources: list[str], tone: str = "neutral") -> dict:
     return {
         "chat_id": chat_id,
         "sources": sources,
+        "tone": tone,
         "pending_urls": [],  # prepare() doczyta inbox z DB
         "raw_articles": [],
         "filtered_articles": [],
@@ -74,6 +75,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "sources": [],
             "briefing_time": "",
             "timezone": "",
+            "tone": "neutral",
             "setup_complete": False,
         },
         _onboarding_config(chat_id),
@@ -131,7 +133,7 @@ async def briefing(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("⏳ Generating your briefing…")
     graph = context.bot_data["briefing"]
     state = await graph.ainvoke(
-        _initial_briefing_state(chat_id, user["sources"]),
+        _initial_briefing_state(chat_id, user["sources"], user.get("tone") or "neutral"),
         _briefing_config(chat_id),
     )
 
@@ -226,6 +228,26 @@ async def removesource_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     await update.message.reply_text(msg)
 
 
+async def tone_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat_id = str(update.effective_chat.id)
+    db: Database = context.bot_data["db"]
+    user = await db.get_user(chat_id)
+    if not user:
+        await update.message.reply_text("First send /start to set up your briefing.")
+        return
+    if not context.args:
+        current = user.get("tone") or "neutral"
+        await update.message.reply_text(
+            f"Current tone: *{current}*.\n"
+            "Change it with /tone neutral | warm | direct.",
+            parse_mode="Markdown",
+        )
+        return
+    tone = parse_tone(" ".join(context.args))
+    await db.set_tone(chat_id, tone)
+    await update.message.reply_text(f"✅ Briefing tone set to *{tone}*.", parse_mode="Markdown")
+
+
 async def _post_init(app: Application) -> None:
     db = Database(settings.db_path)
     await db.init()
@@ -262,6 +284,7 @@ def main() -> None:
     app.add_handler(CommandHandler("sources", sources_cmd))
     app.add_handler(CommandHandler("addsource", addsource_cmd))
     app.add_handler(CommandHandler("removesource", removesource_cmd))
+    app.add_handler(CommandHandler("tone", tone_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
     logger.info("Start pollingu…")
     app.run_polling()

@@ -16,13 +16,14 @@ Cel: działający, self-hostable bot na GitHubie, który realnie rozwiązuje cod
 - **Wytyczne treści + rubryka evals:** `docs/adhd-content-guidelines.md`
 
 **Zrobione:** M0 bootstrap, M1 SourceProvider (+auto-discovery RSS), M2 SQLite, M3 BriefingGraph+CLI,
-M4 Telegram+Onboarding, i18n→EN, M3.5 eval harness + A/B promptów, **M4.6 zarządzanie źródłami
-(`/sources` `/addsource` `/removesource`) + inbox jednorazowy (bare-paste linku → `pending_articles`
-→ dostarczany w najbliższym briefingu, pinned/one-shot, pobierany `fetch_single`)**. 69/69 testów, ruff czysty.
+M4 Telegram+Onboarding, i18n→EN, M3.5 eval harness + A/B promptów, M4.6 zarządzanie źródłami
+(`/sources` `/addsource` `/removesource`) + inbox jednorazowy, **tone-as-user-choice (presety
+`neutral`/`warm`/`direct`: onboarding + `users.tone` +migracja + param summarizera + `/tone`) +
+read-time per artykuł**. 86/86 testów, ruff czysty.
 
 **Nierozstrzygnięte / następne:** (1) 🔴 **hosting always-on** (Fly.io vs Oracle VM vs własny sprzęt —
-Vercel odrzucony), (2) tone-as-user-choice + read-time, (3) M5 scheduler (odblokuje „briefing o godzinie"
-— dziś inbox konsumuje ręczny `/briefing`), (4) M6 README+Dockerfile.
+Vercel odrzucony), (2) M5 scheduler (odblokuje „briefing o godzinie" — dziś inbox konsumuje ręczny
+`/briefing`), (3) M6 README+Dockerfile.
 
 > ⚠️ **Stan na koniec sesji 2026-06-21:** M4.6 zaimplementowane, przetestowane (69/69) i ZACOMMITOWANE,
 > ale **NIE przeklikane na żywym Telegramie** — pierwszy krok jutro: `/start` → `/addsource` → wklej link → `/briefing`.

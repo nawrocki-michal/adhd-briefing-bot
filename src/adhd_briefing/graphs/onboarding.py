@@ -20,10 +20,31 @@ _SOURCES_Q = (
     "separated by commas or new lines."
 )
 _SCHEDULE_Q = "What time should I send your briefing? (e.g. 07:30, default 08:00)"
+_TONE_Q = (
+    "Last one — how should your briefings sound?\n"
+    "1. Neutral — straight, factual (default)\n"
+    "2. Warm — encouraging, speaks to you\n"
+    "3. Direct — blunt, no filler\n"
+    "Reply 1, 2, or 3 (or neutral/warm/direct)."
+)
+
+_TONES = ("neutral", "warm", "direct")
+_TONE_BY_DIGIT = {"1": "neutral", "2": "warm", "3": "direct"}
 
 
 def parse_topics(text: str) -> list[str]:
     return [t.strip() for t in re.split(r"[,\n]", text) if t.strip()]
+
+
+def parse_tone(text: str, default: str = "neutral") -> str:
+    """Mapuje odpowiedź użytkownika ('2', 'warm', 'Direct') na preset. Fallback do default."""
+    t = text.strip().lower()
+    if t in _TONE_BY_DIGIT:
+        return _TONE_BY_DIGIT[t]
+    for tone in _TONES:
+        if tone in t:
+            return tone
+    return default
 
 
 def parse_sources(text: str) -> list[str]:
@@ -66,6 +87,10 @@ def build_onboarding_graph(db: Database, *, checkpointer=None):
             "timezone": settings.default_timezone,
         }
 
+    def tone_node(state: OnboardingState) -> dict:
+        answer = interrupt(_TONE_Q)
+        return {"tone": parse_tone(answer)}
+
     async def confirm_node(state: OnboardingState) -> dict:
         await db.upsert_user(
             chat_id=state["chat_id"],
@@ -73,6 +98,7 @@ def build_onboarding_graph(db: Database, *, checkpointer=None):
             sources=state["sources"],
             briefing_time=state["briefing_time"],
             timezone=state["timezone"],
+            tone=state.get("tone") or "neutral",
         )
         return {"setup_complete": True}
 
@@ -80,12 +106,14 @@ def build_onboarding_graph(db: Database, *, checkpointer=None):
     builder.add_node("topics", topics_node)
     builder.add_node("sources", sources_node)
     builder.add_node("schedule", schedule_node)
+    builder.add_node("tone", tone_node)
     builder.add_node("confirm", confirm_node)
 
     builder.add_edge(START, "topics")
     builder.add_edge("topics", "sources")
     builder.add_edge("sources", "schedule")
-    builder.add_edge("schedule", "confirm")
+    builder.add_edge("schedule", "tone")
+    builder.add_edge("tone", "confirm")
     builder.add_edge("confirm", END)
 
     return builder.compile(checkpointer=checkpointer)

@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
     sources       TEXT,                       -- JSON list
     briefing_time TEXT,                       -- "07:30"
     timezone      TEXT,                       -- "Europe/Warsaw"
+    tone          TEXT DEFAULT 'neutral',     -- neutral | warm | direct
     created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

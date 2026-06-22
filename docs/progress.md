@@ -56,7 +56,7 @@ Wszystko lokalne — **brak jeszcze hostingu (always-on) i automatycznego schedu
   - oba strumienie (stałe źródła + inbox) wpadają do jednego briefingu; `prepare` doczytuje inbox z DB
   - ⚠️ do czasu M5 „o wybranej godzinie" = przy ręcznym `/briefing`; scheduler dołoży automatyzm bez zmian w tej logice
 
-**Stan testów:** 69/69 pytest zielonych (było 57; +12 dla źródeł/inboxa), ruff czysty.
+**Stan testów:** 86/86 pytest zielonych (69 → +17 dla tonu/read-time/migracji), ruff czysty.
 
 ---
 
@@ -73,13 +73,18 @@ Cel: bot ma działać 24/7, nie tylko lokalnie.
 - Rozstrzygnięcie: portfolio/nauka → Fly.io; ma po prostu działać → własny sprzęt; $0 forever → Oracle.
 - ⚠️ Trwałość: zostajemy przy SQLite na trwałym dysku/volume (zero zmian w kodzie).
 
-### 🟡 Decyzja: feature tonu (ustalona, do implementacji)
-- **tone-as-user-choice** — user wybiera ton w onboardingu: 3 presety `neutral` / `warm` / `direct`.
-  Wymaga: pytanie w onboardingu + kolumna `users.tone` + parametr promptu summarizera.
-- **read-time** per artykuł w formacie briefingu (≈200 wpm; przybliżone dla feedów).
+### ✅ tone-as-user-choice + read-time (ZROBIONE 2026-06-22)
+- **tone-as-user-choice** — 3 presety `neutral` / `warm` / `direct`. Pytanie w onboardingu
+  (krok `schedule → tone → confirm`), kolumna `users.tone` (+migracja dla istniejących baz),
+  parametr tonu w summarizerze (neutral = bazowy prompt 1:1, więc baseline nietknięty),
+  niesiony przez `BriefingState.tone`. Komenda `/tone [neutral|warm|direct]` zmienia ton bez
+  nadpisującego `/start` (spójnie z M4.6). Suffiksy głosu doklejane do system promptu —
+  zmiana któregokolwiek → zmierz evalem.
+- **read-time** — `estimate_read_time(content, 200 wpm)` w linii artykułu („⏱ N min read").
+- Eval neutrala po zmianie: 94/100 (robot 95, email 92) — w granicach wariancji 2-case setu;
+  neutral to ten sam prompt co przy 98, różnica to nondeterminizm LLM/judge, nie regresja.
 
 ### Następne milestone'y (kolejność wg rekomendacji)
-- [ ] **tone-as-user-choice + read-time** (domyka decyzję produktową)
 - [ ] **M5 — Scheduler** — automatyczny codzienny briefing (APScheduler + SQLAlchemyJobStore,
   timezone-aware, idempotencja przez tabelę `briefing_runs` — już w schemacie)
 - [ ] **M6 — README + Dockerfile** — self-hostable repo na GitHub; README z akapitem tradeoff o LangGraph

@@ -6,14 +6,22 @@ Bez sieci i bez LLM: fetch_articles zmockowany, Summarizer podmieniony na fake.
 import pytest
 
 from adhd_briefing.db import Database
-from adhd_briefing.graphs.briefing import build_briefing_graph, format_briefing
+from adhd_briefing.graphs.briefing import (
+    build_briefing_graph,
+    estimate_read_time,
+    format_briefing,
+)
 from adhd_briefing.models import Article
 
 
 class FakeSummarizer:
-    """Deterministyczny summarizer — bez wywołań Claude API."""
+    """Deterministyczny summarizer — bez wywołań Claude API. Zapamiętuje użyty ton."""
 
-    async def summarize(self, article: dict) -> dict:
+    def __init__(self) -> None:
+        self.tones: list[str] = []
+
+    async def summarize(self, article: dict, tone: str = "neutral") -> dict:
+        self.tones.append(tone)
         return {
             **article,
             "tldr": [f"bullet dla {article['title']}"],
@@ -35,10 +43,11 @@ def _make_fetch(mapping: dict[str, list[Article]]):
     return _fetch
 
 
-def _initial(chat_id: str, sources: list[str]) -> dict:
+def _initial(chat_id: str, sources: list[str], tone: str = "neutral") -> dict:
     return {
         "chat_id": chat_id,
         "sources": sources,
+        "tone": tone,
         "raw_articles": [],
         "filtered_articles": [],
         "summarized_articles": [],
@@ -61,6 +70,20 @@ def test_format_includes_articles():
     assert "wniosek" in out
     assert "b1" in out
     assert "https://a" in out
+
+
+def test_format_includes_read_time():
+    content = " ".join(["word"] * 400)  # 400 słów ≈ 2 min @200 wpm
+    out = format_briefing([{"title": "T", "tldr": [], "url": "https://a", "content": content}])
+    assert "2 min read" in out
+
+
+@pytest.mark.parametrize(
+    "words,expected",
+    [(0, 1), (50, 1), (200, 1), (300, 2), (1000, 5)],
+)
+def test_estimate_read_time(words, expected):
+    assert estimate_read_time(" ".join(["w"] * words)) == expected
 
 
 # --- fan-out + reducer (Bug #1) ---
@@ -184,6 +207,16 @@ async def test_pending_bypasses_seen_filter(db, monkeypatch):
 
     titles = {a["title"] for a in state["summarized_articles"]}
     assert titles == {"Pasted"}  # mimo seen — bo pinned
+
+
+async def test_tone_forwarded_to_summarizer(db, monkeypatch):
+    """Ton ze stanu briefingu trafia do summarizer.summarize()."""
+    mapping = {"https://s": [Article("https://a", "A", "t", "https://s")]}
+    monkeypatch.setattr("adhd_briefing.graphs.briefing.fetch_articles", _make_fetch(mapping))
+    fake = FakeSummarizer()
+    graph = build_briefing_graph(db, fake)
+    await graph.ainvoke(_initial("u1", ["https://s"], tone="warm"))
+    assert fake.tones == ["warm"]
 
 
 async def test_respects_max_articles(db, monkeypatch):

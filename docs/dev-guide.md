@@ -33,6 +33,7 @@ PYTHONPATH=src .venv/bin/python -m adhd_briefing.cli --chat-id me --sources "htt
 PYTHONPATH=src .venv/bin/python -m adhd_briefing.bot
 # Komendy bota: /start (onboarding), /briefing (briefing teraz),
 #   /sources /addsource <url…> /removesource <nr|url> (stałe źródła — inkrementalnie),
+#   /tone [neutral|warm|direct] (ton briefingu; bez argumentu pokazuje aktualny),
 #   oraz: wklej linki bez komendy → trafiają do inboxa, dostarczane w najbliższym briefingu
 
 # Evals (wymagają ANTHROPIC_API_KEY, robią realne wywołania — kosztują)
@@ -78,7 +79,7 @@ evals/                   # M3.5 — eval harness (NIE w pytest; realne LLM calls
 ├── run.py               #   validate | summarizer
 └── prompt_variants.py   #   A/B wariantów promptu
 
-tests/                   # pytest (57, bez sieci/LLM — wszystko mockowane)
+tests/                   # pytest (86, bez sieci/LLM — wszystko mockowane)
 docs/                    # architecture.md, adhd-content-guidelines.md, progress.md, dev-guide.md, source-benchmark.md
 ```
 

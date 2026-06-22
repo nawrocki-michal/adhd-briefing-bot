@@ -14,6 +14,7 @@ class BriefingState(TypedDict):
 
     chat_id: str
     sources: list[str]
+    tone: str  # neutral | warm | direct — steruje promptem summarizera
     pending_urls: list[str]  # inbox jednorazowy — pobierany wprost (bez discovery), pinned
     raw_articles: Annotated[list[dict], operator.add]
     filtered_articles: list[dict]
@@ -29,4 +30,5 @@ class OnboardingState(TypedDict):
     sources: list[str]
     briefing_time: str  # "07:30"
     timezone: str  # "Europe/Warsaw" — wymagane dla schedulera (M5)
+    tone: str  # neutral | warm | direct
     setup_complete: bool

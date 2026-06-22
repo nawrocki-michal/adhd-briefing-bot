@@ -27,7 +27,15 @@ class Database:
             await db.execute("PRAGMA journal_mode=WAL")
             await db.execute("PRAGMA foreign_keys=ON")
             await db.executescript(_SCHEMA_PATH.read_text(encoding="utf-8"))
+            await self._migrate(db)
             await db.commit()
+
+    async def _migrate(self, db: aiosqlite.Connection) -> None:
+        """Lekkie migracje dla istniejących baz (CREATE IF NOT EXISTS nie dołoży kolumny)."""
+        async with db.execute("PRAGMA table_info(users)") as cur:
+            cols = {row[1] for row in await cur.fetchall()}
+        if "tone" not in cols:
+            await db.execute("ALTER TABLE users ADD COLUMN tone TEXT DEFAULT 'neutral'")
 
     # --- users ---
 
@@ -38,19 +46,28 @@ class Database:
         sources: list[str],
         briefing_time: str,
         timezone: str,
+        tone: str = "neutral",
     ) -> None:
         async with aiosqlite.connect(self.path) as db:
             await db.execute(
                 """
-                INSERT INTO users (chat_id, topics, sources, briefing_time, timezone)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO users (chat_id, topics, sources, briefing_time, timezone, tone)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(chat_id) DO UPDATE SET
                     topics=excluded.topics,
                     sources=excluded.sources,
                     briefing_time=excluded.briefing_time,
-                    timezone=excluded.timezone
+                    timezone=excluded.timezone,
+                    tone=excluded.tone
                 """,
-                (chat_id, json.dumps(topics), json.dumps(sources), briefing_time, timezone),
+                (
+                    chat_id,
+                    json.dumps(topics),
+                    json.dumps(sources),
+                    briefing_time,
+                    timezone,
+                    tone,
+                ),
             )
             await db.commit()
 
@@ -66,7 +83,16 @@ class Database:
         user = dict(row)
         user["topics"] = json.loads(user["topics"]) if user["topics"] else []
         user["sources"] = json.loads(user["sources"]) if user["sources"] else []
+        user["tone"] = user.get("tone") or "neutral"
         return user
+
+    async def set_tone(self, chat_id: str, tone: str) -> None:
+        """Zmienia ton briefingu bez nadpisywania reszty profilu (inaczej niż /start)."""
+        async with aiosqlite.connect(self.path) as db:
+            await db.execute(
+                "UPDATE users SET tone = ? WHERE chat_id = ?", (tone, chat_id)
+            )
+            await db.commit()
 
     async def list_users(self) -> list[dict]:
         async with aiosqlite.connect(self.path) as db:
