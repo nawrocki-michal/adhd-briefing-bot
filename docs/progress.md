@@ -92,6 +92,13 @@ Cel: bot ma działać 24/7, nie tylko lokalnie.
 
 ---
 
+## Bugfix (2026-06-22) — BriefingGraph był checkpointowany → stare źródła wracały
+Objaw: `/briefing` po zmianie źródeł nadal pokazywał stare svpg/aprildunford/dpereira.
+Przyczyna: BriefingGraph kompilowany z trwałym checkpointerem + stałym `thread_id`; reducer
+`operator.add` na `raw_articles` akumulował fetch każdego runu (stan urósł do 128 art.).
+Fix: briefing kompilowany **bez** checkpointera (`bot.py`) — jest wsadowy/bezstanowy, dedup
+robi `seen_articles`. Onboarding zostaje z checkpointerem (HITL). Patrz CLAUDE.md Bug #6.
+
 ## Niuanse / długi techniczny (do zapamiętania)
 - **O'Reilly auto-discovery** łapie feed *podcastu* (pierwszy `<link rel=alternate>`), nie Radar.
   Do dopracowania: preferować główny feed nad podcastem.

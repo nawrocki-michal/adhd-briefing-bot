@@ -238,7 +238,11 @@ async def _post_init(app: Application) -> None:
     summarizer = Summarizer()
     app.bot_data["db"] = db
     app.bot_data["onboarding"] = build_onboarding_graph(db, checkpointer=checkpointer)
-    app.bot_data["briefing"] = build_briefing_graph(db, summarizer, checkpointer=checkpointer)
+    # BriefingGraph jest wsadowy i bezstanowy (brak interrupt()) — NIE checkpointujemy go.
+    # Z trwałym checkpointerem reducer operator.add na raw_articles akumulowałby fetch
+    # każdego /briefing między uruchomieniami (stare/usunięte źródła wracały w kółko).
+    # Dedup między dniami zapewnia tabela seen_articles, nie checkpoint.
+    app.bot_data["briefing"] = build_briefing_graph(db, summarizer)
     app.bot_data["notifier"] = TelegramNotifier(app.bot)
     logger.info("Bot zainicjalizowany — onboarding + briefing gotowe.")
 

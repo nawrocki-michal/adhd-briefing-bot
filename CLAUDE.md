@@ -94,6 +94,19 @@ Architektura zakładała, że `Send()` wymaga osobnego węzła dispatcher. **W L
 tak jest zaimplementowane (`graphs/briefing.py`: `prepare` → conditional edge `dispatch` →
 `fetch_worker`). Zweryfikowane przez context7. Bug #1–#4 nadal obowiązują.
 
+### Bug #6 — BriefingGraph NIE może być checkpointowany (OBOWIĄZKOWE)
+BriefingGraph jest wsadowy i bezstanowy (brak `interrupt()`). Kompilowany z trwałym
+checkpointerem + stałym `thread_id` akumulował stan między uruchomieniami: reducer
+`operator.add` na `raw_articles` dokładał fetch każdego `/briefing` do poprzednich
+(stan spuchł do 128 art., wracały stare/usunięte źródła). `raw_articles: []` z initial
+state NIE czyści — reducer robi `stare + [] = stare`.
+```python
+# bot.py — briefing BEZ checkpointera (onboarding go potrzebuje, briefing nie):
+app.bot_data["briefing"] = build_briefing_graph(db, summarizer)  # ŻADNEGO checkpointer=
+```
+Dedup między dniami zapewnia tabela `seen_articles`, nie checkpoint. Tylko OnboardingGraph
+(HITL) używa checkpointera.
+
 ### Dodatkowy fix (M4.5) — RSSProvider pobiera feed przez httpx z UA przeglądarki
 feedparser z domyślnym UA bywa blokowany (403) przez Substack/O'Reilly → feed wracał pusty.
 Pobieramy przez `httpx` z UA przeglądarki, potem parsujemy tekst. Patrz `sources/rss.py`.
