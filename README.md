@@ -25,6 +25,7 @@ This is a portfolio project. The goal was to build something I'd actually use ev
 - 🗂️ **Incremental source management** — `/sources`, `/addsource`, `/removesource` without re-running onboarding.
 - 📥 **One-shot inbox** — paste any link (no command) and it's delivered in your next briefing, then forgotten.
 - ✅ **Deduplication** — you never see the same article twice.
+- 💸 **Cost observability** — every briefing's token usage and estimated USD cost is tracked, so a pay-as-you-go deployment is never a black box (see [Cost control](#cost-control)).
 
 ## Architecture
 
@@ -125,7 +126,7 @@ The SQLite database lives on the `adhd_data` volume (`DB_PATH=/data/adhd.db` is 
 ## Testing & quality
 
 ```bash
-.venv/bin/python -m pytest -q          # 86 tests, fully mocked — no network/LLM
+.venv/bin/python -m pytest -q          # 95 tests, fully mocked — no network/LLM
 .venv/bin/ruff check src/ evals/        # lint
 ```
 
@@ -138,6 +139,25 @@ PYTHONPATH=src .venv/bin/python -m evals.prompt_variants    # A/B prompt compari
 ```
 
 Rule of thumb in this repo: **changing the summarizer prompt means re-running the eval** before committing.
+
+## Cost control
+
+The bot runs on the pay-as-you-go Claude API, so cost is treated as something you can see and bound — not a surprise on your invoice.
+
+**Where the cost is.** The only billed calls are article summaries (onboarding parsing is regex-based; evals are dev-only). Each summary uses Claude Haiku — at roughly **~$0.003 per article**, a 5-article briefing costs about **~$0.015**. Several things keep that bounded by design:
+
+- `BRIEFING_MAX_ARTICLES` caps how many articles get summarized per briefing.
+- Article text is truncated before summarizing, capping input tokens per call.
+- A `seen_articles` table deduplicates, so the same article is never paid for twice.
+
+**Built-in observability.** Every briefing records its token usage and an estimated USD cost to an append-only `llm_usage` table; the bot logs `~$X per briefing` and the CLI prints a token+cost footer. `Database.usage_total(chat_id, since)` sums cost per user over any window — the foundation for per-user budget enforcement.
+
+**Recommended before you scale:**
+
+1. Set a **spend limit and billing alerts** in the [Anthropic Console](https://console.anthropic.com) — the hard backstop, independent of the app.
+2. Once the scheduler lands, route scheduled briefings through the **Message Batches API** for a 50% discount (they're not latency-sensitive); keep on-demand `/briefing` synchronous.
+
+> Prompt caching is intentionally *not* used here: the system prompt is below Haiku's minimum cacheable prefix, so it would never actually cache.
 
 ## Project layout
 
