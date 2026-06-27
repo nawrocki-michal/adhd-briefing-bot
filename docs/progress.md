@@ -80,10 +80,10 @@ Cel: bot ma działać 24/7, nie tylko lokalnie.
 - **Vercel odrzucony** — serverless/bezstanowy, brak trwałego dysku, timeouty funkcji (wymagałby
   przepisania: webhook + Postgres + cron). Nie pasuje do always-on stateful bota.
 - Realne opcje (ten sam kod + Dockerfile, **zero przeróbek**):
-  - **Fly.io** — deploy kontenera + persistent volume; karta do weryfikacji. Dobre do portfolio (deploy+kontener).
+  - **Fly.io** — deploy kontenera + persistent volume; karta do weryfikacji. Dobre do nauki (deploy+kontener).
   - **Oracle Cloud Always Free VM** — $0 forever, własna VM (ARM); karta; więcej setupu (ssh/docker).
   - **Własny sprzęt 24/7** (RPi/stary laptop) — w 100% darmowe, zero kart; minus: musi być włączone.
-- Rozstrzygnięcie: portfolio/nauka → Fly.io; ma po prostu działać → własny sprzęt; $0 forever → Oracle.
+- Rozstrzygnięcie: nauka/demo → Fly.io; ma po prostu działać → własny sprzęt; $0 forever → Oracle.
 - ⚠️ Trwałość: zostajemy przy SQLite na trwałym dysku/volume (zero zmian w kodzie).
 
 ### ✅ tone-as-user-choice + read-time (ZROBIONE 2026-06-22)
