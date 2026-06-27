@@ -111,7 +111,10 @@ def build_briefing_graph(
         selected = state["filtered_articles"][:limit]
         tone = state.get("tone") or "neutral"
         results = await asyncio.gather(*(summarizer.summarize(a, tone) for a in selected))
-        return {"summarized_articles": list(results)}
+        return {
+            "summarized_articles": list(results),
+            "usage": _aggregate_usage(results),
+        }
 
     async def format_node(state: BriefingState) -> dict:
         articles = state.get("summarized_articles", [])
@@ -132,6 +135,19 @@ def build_briefing_graph(
     builder.add_edge("format", END)
 
     return builder.compile(checkpointer=checkpointer)
+
+
+def _aggregate_usage(summarized: list[dict]) -> dict:
+    """Sumuje per-artykuł `_usage` w jeden rekord zużycia całego briefingu."""
+    input_tokens = sum(a.get("_usage", {}).get("input_tokens", 0) for a in summarized)
+    output_tokens = sum(a.get("_usage", {}).get("output_tokens", 0) for a in summarized)
+    model = next((a["_usage"]["model"] for a in summarized if a.get("_usage")), "")
+    return {
+        "model": model,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "articles": len(summarized),
+    }
 
 
 def _to_dict(article, *, pinned: bool = False) -> dict:

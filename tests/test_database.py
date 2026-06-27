@@ -26,7 +26,7 @@ async def test_init_enables_wal(db):
 async def test_init_creates_all_tables(db):
     expected = {
         "users", "briefings", "articles", "seen_articles",
-        "actions", "briefing_runs", "pending_articles",
+        "actions", "briefing_runs", "pending_articles", "llm_usage",
     }
     async with aiosqlite.connect(db.path) as conn:
         async with conn.execute("SELECT name FROM sqlite_master WHERE type='table'") as cur:
@@ -233,3 +233,35 @@ async def test_run_status_running_not_done(db):
     assert await db.is_run_done("123", d) is False  # tylko 'completed' liczy się jako done
     await db.record_run("123", d, "completed")
     assert await db.is_run_done("123", d) is True
+
+
+# --- llm_usage (obserwowalność kosztów) ---
+
+
+async def test_record_usage_computes_haiku_cost(db):
+    # Haiku 4.5: $1/M input, $5/M output → 1_000_000 in + 200_000 out = 1.0 + 1.0 = $2.0
+    usage = {
+        "model": "claude-haiku-4-5-20251001",
+        "input_tokens": 1_000_000,
+        "output_tokens": 200_000,
+        "articles": 5,
+    }
+    cost = await db.record_usage("123", usage)
+    assert cost == pytest.approx(2.0)
+
+
+async def test_record_usage_skips_zero(db):
+    cost = await db.record_usage("123", {"model": "claude-haiku-4-5", "input_tokens": 0, "output_tokens": 0})
+    assert cost == 0.0
+    totals = await db.usage_total("123", date(2000, 1, 1))
+    assert totals["runs"] == 0  # nic nie zapisano
+
+
+async def test_usage_total_sums_runs(db):
+    u = {"model": "claude-haiku-4-5", "input_tokens": 1_000_000, "output_tokens": 0, "articles": 3}
+    await db.record_usage("123", u)
+    await db.record_usage("123", u)
+    totals = await db.usage_total("123", date(2000, 1, 1))
+    assert totals["runs"] == 2
+    assert totals["input_tokens"] == 2_000_000
+    assert totals["cost_usd"] == pytest.approx(2.0)  # 2 × $1.0

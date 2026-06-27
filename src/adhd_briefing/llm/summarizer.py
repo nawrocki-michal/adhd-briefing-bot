@@ -80,10 +80,22 @@ class Summarizer:
         self._sem = asyncio.Semaphore(concurrency or settings.llm_concurrency)
 
     async def summarize(self, article: dict, tone: str = DEFAULT_TONE) -> dict:
-        """Zwraca artykuł wzbogacony o tldr (list[str]) i main_outcome (str)."""
+        """Zwraca artykuł wzbogacony o tldr (list[str]), main_outcome (str) i _usage."""
         async with self._sem:
             data = await self._call(article, tone)
-        return {**article, "tldr": data["tldr"], "main_outcome": data["main_outcome"]}
+        return {
+            **article,
+            "tldr": data["tldr"],
+            "main_outcome": data["main_outcome"],
+            "_usage": data["usage"],  # {model, input_tokens, output_tokens} — do liczenia kosztu
+        }
+
+    def _usage(self, input_tokens: int = 0, output_tokens: int = 0) -> dict:
+        return {
+            "model": self.model,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+        }
 
     async def _call(self, article: dict, tone: str = DEFAULT_TONE) -> dict:
         content = (article.get("content") or "")[:_MAX_CONTENT_CHARS]
@@ -103,8 +115,17 @@ class Summarizer:
             return {
                 "tldr": parsed.get("tldr", []),
                 "main_outcome": parsed.get("main_outcome", ""),
+                "usage": self._usage(
+                    getattr(resp.usage, "input_tokens", 0) or 0,
+                    getattr(resp.usage, "output_tokens", 0) or 0,
+                ),
             }
         except Exception:
             # Izolacja awarii per wywołanie LLM — jedno źródło nie wywraca briefingu.
+            # Brak udanego wywołania → zerowe zużycie (nie obciążamy licznika kosztów).
             snippet = (content[:200] + "…") if content else ""
-            return {"tldr": [snippet] if snippet else [], "main_outcome": title}
+            return {
+                "tldr": [snippet] if snippet else [],
+                "main_outcome": title,
+                "usage": self._usage(),
+            }

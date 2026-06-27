@@ -10,6 +10,7 @@ from pathlib import Path
 
 import aiosqlite
 
+from adhd_briefing.llm.pricing import estimate_cost
 from adhd_briefing.models import Article
 
 _SCHEMA_PATH = Path(__file__).parent / "schema.sql"
@@ -246,3 +247,48 @@ class Database:
                 (chat_id, run_date.isoformat()),
             ) as cur:
                 return await cur.fetchone() is not None
+
+    # --- obserwowalność kosztów LLM (llm_usage) ---
+
+    async def record_usage(self, chat_id: str, usage: dict) -> float:
+        """Zapisuje zużycie tokenów briefingu i zwraca jego szacowany koszt w USD.
+
+        usage: {model, input_tokens, output_tokens, articles} z grafu briefingu.
+        Wpis z zerowym zużyciem (np. briefing bez nowych artykułów) jest pomijany.
+        """
+        model = usage.get("model") or ""
+        input_tokens = usage.get("input_tokens", 0)
+        output_tokens = usage.get("output_tokens", 0)
+        if not (input_tokens or output_tokens):
+            return 0.0
+        cost = estimate_cost(model, input_tokens, output_tokens)
+        async with aiosqlite.connect(self.path) as db:
+            await db.execute(
+                """
+                INSERT INTO llm_usage (chat_id, model, input_tokens, output_tokens, cost_usd, articles)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (chat_id, model, input_tokens, output_tokens, cost, usage.get("articles", 0)),
+            )
+            await db.commit()
+        return cost
+
+    async def usage_total(self, chat_id: str, since: date) -> dict:
+        """Sumuje koszt i tokeny użytkownika od daty `since` (do budżetu/raportu)."""
+        async with aiosqlite.connect(self.path) as db:
+            async with db.execute(
+                """
+                SELECT COALESCE(SUM(cost_usd), 0), COALESCE(SUM(input_tokens), 0),
+                       COALESCE(SUM(output_tokens), 0), COUNT(*)
+                FROM llm_usage
+                WHERE chat_id = ? AND created_at >= ?
+                """,
+                (chat_id, since.isoformat()),
+            ) as cur:
+                cost, in_tok, out_tok, runs = await cur.fetchone()
+        return {
+            "cost_usd": cost,
+            "input_tokens": in_tok,
+            "output_tokens": out_tok,
+            "runs": runs,
+        }

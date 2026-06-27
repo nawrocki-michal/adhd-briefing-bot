@@ -49,6 +49,17 @@ async def run(sources: list[str], chat_id: str) -> str:
         ]
         await db.save_briefing(chat_id, date.today(), articles)
 
+    # Obserwowalność kosztów: zapisz zużycie i dopisz koszt na końcu briefingu (stderr-friendly).
+    usage = state.get("usage")
+    if usage:
+        cost = await db.record_usage(chat_id, usage)
+        return (
+            f"{state['briefing']}\n\n"
+            f"— {usage.get('articles', 0)} articles · "
+            f"{usage.get('input_tokens', 0)}+{usage.get('output_tokens', 0)} tokens · "
+            f"~${cost:.4f}"
+        )
+
     return state["briefing"]
 
 

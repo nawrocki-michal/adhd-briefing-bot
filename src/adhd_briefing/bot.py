@@ -154,6 +154,19 @@ async def briefing(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         ]
         await db.save_briefing(chat_id, date.today(), articles)
 
+    # Obserwowalność kosztów: zapisz zużycie tokenów i zaloguj szacowany koszt briefingu.
+    usage = state.get("usage")
+    if usage:
+        cost = await db.record_usage(chat_id, usage)
+        logger.info(
+            "Briefing %s: %d art., in=%d out=%d tok, ~$%.4f",
+            chat_id,
+            usage.get("articles", 0),
+            usage.get("input_tokens", 0),
+            usage.get("output_tokens", 0),
+            cost,
+        )
+
     # Inbox jednorazowy: czyść wszystko, co próbowaliśmy dostarczyć (one-shot,
     # bez ponawiania martwych linków). Dostarczone URL-e są już oznaczone jako seen.
     await db.clear_pending(chat_id, state.get("pending_urls", []))

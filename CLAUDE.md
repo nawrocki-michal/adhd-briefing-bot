@@ -20,7 +20,7 @@ Cel: działający, self-hostable bot na GitHubie, który realnie rozwiązuje cod
 M4 Telegram+Onboarding, i18n→EN, M3.5 eval harness + A/B promptów, M4.6 zarządzanie źródłami
 (`/sources` `/addsource` `/removesource`) + inbox jednorazowy, **tone-as-user-choice (presety
 `neutral`/`warm`/`direct`: onboarding + `users.tone` +migracja + param summarizera + `/tone`) +
-read-time per artykuł**. 86/86 testów, ruff czysty.
+read-time per artykuł**. 95/95 testów, ruff czysty.
 
 **Nierozstrzygnięte / następne:** (1) 🔴 **hosting always-on** (Fly.io vs Oracle VM vs własny sprzęt —
 Vercel odrzucony), (2) M5 scheduler (odblokuje „briefing o godzinie" — dziś inbox konsumuje ręczny
@@ -30,7 +30,7 @@ Vercel odrzucony), (2) M5 scheduler (odblokuje „briefing o godzinie" — dziś
 > - **Zrobione i zacommitowane dziś:** (a) fix bug — BriefingGraph był checkpointowany, reducer
 >   `operator.add` akumulował stare/usunięte źródła między `/briefing` (svpg wracało); briefing
 >   teraz bez checkpointera (Bug #6). (b) M4.6 przeklikane na żywym Telegramie — działa.
->   (c) tone-as-user-choice + read-time (commit `693e2ab`). 86/86 testów, ruff czysty.
+>   (c) tone-as-user-choice + read-time (commit `693e2ab`). 95/95 testów, ruff czysty.
 > - **Do przeklikania na żywo (NIE zrobione):** ton + read-time. Bot stoi — odpal
 >   `PYTHONPATH=src .venv/bin/python -m adhd_briefing.bot`, potem: `/tone` → `/tone warm` →
 >   `/briefing` (sprawdź „⏱ N min read" i cieplejszy ton); opcjonalnie `/start` od nowa, by

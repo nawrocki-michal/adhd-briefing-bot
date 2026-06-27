@@ -19,6 +19,7 @@ class BriefingState(TypedDict):
     raw_articles: Annotated[list[dict], operator.add]
     filtered_articles: list[dict]
     summarized_articles: list[dict]
+    usage: dict  # zagregowane zużycie LLM {model, input_tokens, output_tokens, articles}
     briefing: str
 
 

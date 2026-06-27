@@ -60,7 +60,16 @@ Wszystko lokalne — **brak jeszcze hostingu (always-on) i automatycznego schedu
   - oba strumienie (stałe źródła + inbox) wpadają do jednego briefingu; `prepare` doczytuje inbox z DB
   - ⚠️ do czasu M5 „o wybranej godzinie" = przy ręcznym `/briefing`; scheduler dołoży automatyzm bez zmian w tej logice
 
-**Stan testów:** 86/86 pytest zielonych (69 → +17 dla tonu/read-time/migracji), ruff czysty.
+**Stan testów:** 95/95 pytest zielonych (69 → +17 ton/read-time/migracja → +9 obserwowalność kosztów), ruff czysty.
+
+### Obserwowalność kosztów LLM (pay-as-you-go)
+- [x] **Usage tracking per briefing:** summarizer łapie `response.usage`, graf agreguje
+  (`usage` w `BriefingState`), `db.record_usage()` liczy koszt (`llm/pricing.py` — cennik per model,
+  Haiku 4.5 $1/$5) i zapisuje do tabeli `llm_usage` (append-only). Bot loguje „~$X per briefing",
+  CLI dopisuje koszt na końcu. `db.usage_total(chat_id, since)` pod przyszły budżet/raport.
+- ⏭️ **Następne dźwignie kosztu (do zrobienia):** (1) twardy spend cap w Console Anthropic,
+  (2) Batch API (−50%) dla briefingów ze schedulera — wpiąć przy M5 (interaktywny `/briefing`
+  zostaje synchroniczny). Prompt caching pominięty — system prompt <4096 tok (próg Haiku).
 
 ---
 

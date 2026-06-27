@@ -26,6 +26,7 @@ class FakeSummarizer:
             **article,
             "tldr": [f"bullet dla {article['title']}"],
             "main_outcome": f"wniosek: {article['title']}",
+            "_usage": {"model": "claude-haiku-4-5", "input_tokens": 100, "output_tokens": 20},
         }
 
 
@@ -217,6 +218,34 @@ async def test_tone_forwarded_to_summarizer(db, monkeypatch):
     graph = build_briefing_graph(db, fake)
     await graph.ainvoke(_initial("u1", ["https://s"], tone="warm"))
     assert fake.tones == ["warm"]
+
+
+# --- obserwowalność kosztów: agregacja usage ---
+
+
+async def test_usage_aggregated_across_articles(db, monkeypatch):
+    mapping = {
+        "https://s1": [Article("https://a1", "A1", "t", "https://s1")],
+        "https://s2": [Article("https://a2", "A2", "t", "https://s2")],
+    }
+    monkeypatch.setattr("adhd_briefing.graphs.briefing.fetch_articles", _make_fetch(mapping))
+
+    graph = build_briefing_graph(db, FakeSummarizer())
+    state = await graph.ainvoke(_initial("u1", ["https://s1", "https://s2"]))
+
+    usage = state["usage"]
+    assert usage["articles"] == 2
+    assert usage["input_tokens"] == 200  # 2 × 100
+    assert usage["output_tokens"] == 40  # 2 × 20
+    assert usage["model"] == "claude-haiku-4-5"
+
+
+async def test_nothing_new_has_no_usage(db, monkeypatch):
+    monkeypatch.setattr("adhd_briefing.graphs.briefing.fetch_articles", _make_fetch({}))
+    graph = build_briefing_graph(db, FakeSummarizer())
+    state = await graph.ainvoke(_initial("u1", ["https://empty"]))
+    # summarize pominięty (conditional edge) → usage nieustawione lub puste
+    assert not state.get("usage")
 
 
 async def test_respects_max_articles(db, monkeypatch):

@@ -67,3 +67,17 @@ CREATE TABLE IF NOT EXISTS briefing_runs (
     status   TEXT,                             -- running | completed | failed
     PRIMARY KEY (chat_id, run_date)
 );
+
+-- Obserwowalność kosztów LLM — append-only log zużycia tokenów per briefing.
+-- Pozwala śledzić wydatki pay-as-you-go i (w przyszłości) wymuszać budżet per user/dzień.
+CREATE TABLE IF NOT EXISTS llm_usage (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    chat_id       TEXT REFERENCES users(chat_id),
+    model         TEXT,
+    input_tokens  INTEGER DEFAULT 0,
+    output_tokens INTEGER DEFAULT 0,
+    cost_usd      REAL DEFAULT 0,
+    articles      INTEGER DEFAULT 0,           -- liczba streszczonych artykułów w tym briefingu
+    created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_llm_usage_chat_date ON llm_usage(chat_id, created_at);
