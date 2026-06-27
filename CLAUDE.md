@@ -2,7 +2,7 @@
 
 ## Kontekst projektu
 
-Portfolio project pokazujący umiejętności techniczne (multi-agent AI) rekruterowi.
+Projekt rozwijający umiejętności techniczne (multi-agent AI) na realnym, codziennym problemie.
 Właściciel: PM rozwijający umiejętności techniczne, z ADHD — jednocześnie główny użytkownik.
 Cel: działający, self-hostable bot na GitHubie, który realnie rozwiązuje codzienny problem.
 

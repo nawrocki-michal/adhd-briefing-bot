@@ -1,7 +1,7 @@
 # ADHD Briefing App — Brainstorming
 
 **Data:** 2026-06-21  
-**Cel portfolio:** Pokazanie umiejętności technicznych (multi-agent AI) rekruterowi  
+**Cel:** Działający, self-hostable bot, który realnie rozwiązuje codzienny problem  
 **Kontekst:** PM rozwijający umiejętności techniczne, z ADHD — jest jednocześnie głównym użytkownikiem
 
 ---
@@ -156,7 +156,7 @@ Bot: Gotowe! Jutro o 7:30 dostaniesz pierwszego briefinga.
 
 ---
 
-## Co to pokazuje rekruterowi
+## Najważniejsze aspekty techniczne
 
 - Multi-agent orchestration z LangGraph (grafy stanów, conditional edges, Send() API)
 - Dwa osobne grafy: OnboardingAgent + BriefingAgent

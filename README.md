@@ -10,7 +10,7 @@ It's built around a simple insight: people with ADHD don't have a *reading* prob
 
 ## Why this project exists
 
-This is a portfolio project. The goal was to build something I'd actually use every day while demonstrating real multi-agent / LLM engineering — not a toy demo:
+The goal was to build something I'd actually use every day while exercising real multi-agent / LLM engineering — not a toy demo:
 
 - A **stateful, conversational onboarding** flow (human-in-the-loop) running on a different execution model than the **batch, autonomous briefing** pipeline.
 - **Quality measured, not vibes-based**: every summarizer prompt change is scored by an eval harness before it ships.
@@ -45,7 +45,7 @@ A fair question — the briefing flow is *almost* a straight line, and you could
 
 1. **Parallel fan-out with a clean join.** Fetching N sources concurrently and merging the results is exactly what `Send()` + a reducer express declaratively — the alternative is hand-rolled `asyncio.gather` plus manual result-merging and error handling.
 2. **Human-in-the-loop for free.** The onboarding graph's `interrupt()`/resume model and durable checkpointing are the hard part of any conversational flow; getting them from the framework (rather than building a state machine by hand) is the whole point.
-3. **It's the showcase.** This is a portfolio piece about agent orchestration — modeling the work as explicit state graphs makes the design legible and is itself the thing being demonstrated.
+3. **Legibility.** Modeling the work as explicit state graphs makes the design self-documenting — the shape of the pipeline lives in the code rather than buried in ad-hoc control flow.
 
 The cost is honest: a framework dependency and some boilerplate. For this project the visibility and the HITL machinery are worth it; for a purely linear, single-source job they would not be.
 
