@@ -62,9 +62,19 @@ A few architectural decisions are load-bearing and documented in [`CLAUDE.md`](C
 | Config | `pydantic-settings` (`.env`) |
 | Quality | Custom eval harness with LLM-as-judge (Claude Sonnet) |
 
-## Quickstart (local)
+## Prerequisites
 
-Requires Python 3.11+, a Telegram bot token ([@BotFather](https://t.me/BotFather)), and an [Anthropic API key](https://console.anthropic.com).
+Before you start, make sure you have:
+
+- **Python 3.11+** (or **Docker**, if you'd rather run it in a container — see [Run with Docker](#run-with-docker)).
+- **A Telegram bot token** — message [@BotFather](https://t.me/BotFather), send `/newbot`, and copy the token it gives you.
+- **An Anthropic API key** — create one at [console.anthropic.com](https://console.anthropic.com). Note that generating briefings makes real (paid) Claude API calls.
+- **A Telegram account** to actually talk to your bot.
+- `git` to clone the repo.
+
+No database to set up: SQLite is created automatically on first run. No public URL or webhook either — the bot uses long-polling.
+
+## Quickstart (local)
 
 ```bash
 git clone <your-fork-url> adhd-briefing && cd adhd-briefing
