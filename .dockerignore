@@ -1,0 +1,38 @@
+# Secrets — never bake into the image
+.env
+
+# SQLite data (mount a volume instead)
+*.db
+*.db-wal
+*.db-shm
+
+# Python / build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+
+# VCS & local config
+.git/
+.gitignore
+.claude/
+.agents/
+.omc/
+*.local.json
+
+# Docs & evals are not needed at runtime
+docs/
+brainstorming/
+evals/
+tests/
+
+# macOS
+.DS_Store

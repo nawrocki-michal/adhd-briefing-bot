@@ -5,7 +5,7 @@ Praktyczny przewodnik: setup, komendy, mapa projektu. Stan: MVP Faza C działa l
 ## Setup (jednorazowo)
 
 ```bash
-cd /Users/michalnawrocki/Desktop/Claude/ADHD
+cd path/to/adhd-briefing
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 cp .env.example .env        # i uzupełnij sekrety (patrz niżej)

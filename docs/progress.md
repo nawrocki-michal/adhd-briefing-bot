@@ -91,7 +91,10 @@ Cel: bot ma działać 24/7, nie tylko lokalnie.
 ### Następne milestone'y (kolejność wg rekomendacji)
 - [ ] **M5 — Scheduler** — automatyczny codzienny briefing (APScheduler + SQLAlchemyJobStore,
   timezone-aware, idempotencja przez tabelę `briefing_runs` — już w schemacie)
-- [ ] **M6 — README + Dockerfile** — self-hostable repo na GitHub; README z akapitem tradeoff o LangGraph
+- [x] **M6 — README + Dockerfile** — README EN (z akapitem tradeoff o LangGraph), LICENSE (MIT),
+  Dockerfile + .dockerignore. Repo gotowe do publikacji; sekrety/historia zweryfikowane jako czyste,
+  `.claude/settings.local.json` odpięty z gita. (Decyzja hostingowa nadal otwarta — Dockerfile działa
+  na dowolnym hoście kontenerów.)
 - [ ] (opcjonalnie) rozszerzenie golden setu + A/B presetów tonu w evalu
 
 ### Przyszłe fazy (poza MVP)
