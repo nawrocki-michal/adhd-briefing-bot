@@ -46,6 +46,16 @@ Wszystko lokalne — **brak jeszcze hostingu (always-on) i automatycznego schedu
 - [x] A/B 3 wariantów promptu (skill `finalize-agent-prompt`): **C kontrastywny 96.5** > baseline 94.8 > A 93.5 > B 92.0
   - wykryta i naprawiona kontaminacja evala (przykład w wariancie używał case'a z golden setu)
   - wdrożony wariant C → standardowy eval **98/100**
+- [x] **Harness wyodrębniony do osobnego repo** (2026-08-30) — `nawrocki-michal/adhd-summary-evals`
+  (prywatne), pod udostępnienie wewnątrz firmy. Samodzielna wersja: SUT za protokołem
+  `SummarizerLike` + referencyjny summarizer, własny `config.py` (sam `ANTHROPIC_API_KEY`), zero
+  zależności od `adhd_briefing`. Rubryka i golden set przeniesione 1:1.
+  - ⚠️ **`evals/` w tym repo pozostaje źródłem prawdy dla bota** — osobne repo to świadomy snapshot,
+    NIE zależność (decyzja: dwa niezależne repo). Zmiana rubryki/golden setu tutaj wymaga **ręcznej**
+    synchronizacji tam. To zaciągnięty dług — jeśli zacznie dryfować, opcją jest zrobić z niego
+    dev-dependency i skasować lokalną kopię.
+  - Różnica świadoma: tam błędy API **propagują** zamiast wpadać w fallback (w bocie fallback chroni
+    briefing; w evalu zafałszowałby pomiar — oceniałbyś fallback, nie model).
 
 ### Zarządzanie źródłami + inbox jednorazowy (M4.6)
 - [x] **Stałe źródła — inkrementalnie:** `/sources` (lista), `/addsource <url…>` (doklej, dedup),

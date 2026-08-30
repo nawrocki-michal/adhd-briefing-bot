@@ -165,6 +165,9 @@ Aktualny tracker: `docs/progress.md`.
 - `docs/dev-guide.md` — setup, komendy, mapa projektu, gdzie są prompty
 - `docs/adhd-content-guidelines.md` — wytyczne treści ADHD + rubryka evals
 - `evals/` — eval harness (golden set, judge, A/B promptów) — NIE w pytest (realne LLM calls)
+  - ⚠️ Harness ma też **osobne, samodzielne repo** `adhd-summary-evals` (prywatne, pod firmę).
+    `evals/` tutaj jest **źródłem prawdy dla bota**; tamto to snapshot, nie zależność. Zmiana
+    rubryki/golden setu → zsynchronizuj ręcznie (szczegóły w `docs/progress.md`, M3.5).
 
 ## Narzędzia i skille
 
