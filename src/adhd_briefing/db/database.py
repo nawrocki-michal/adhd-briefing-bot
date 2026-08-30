@@ -95,6 +95,24 @@ class Database:
             )
             await db.commit()
 
+    async def set_schedule(self, chat_id: str, briefing_time: str, timezone: str | None = None) -> None:
+        """Zmienia porę briefingu bez nadpisywania reszty profilu (jak set_tone).
+
+        `timezone=None` zostawia dotychczasową strefę.
+        """
+        async with aiosqlite.connect(self.path) as db:
+            if timezone:
+                await db.execute(
+                    "UPDATE users SET briefing_time = ?, timezone = ? WHERE chat_id = ?",
+                    (briefing_time, timezone, chat_id),
+                )
+            else:
+                await db.execute(
+                    "UPDATE users SET briefing_time = ? WHERE chat_id = ?",
+                    (briefing_time, chat_id),
+                )
+            await db.commit()
+
     async def list_users(self) -> list[dict]:
         async with aiosqlite.connect(self.path) as db:
             db.row_factory = aiosqlite.Row

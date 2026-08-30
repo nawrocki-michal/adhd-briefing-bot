@@ -4,7 +4,7 @@ A self-hostable Telegram bot that turns the blogs and feeds you care about into 
 
 It's built around a simple insight: people with ADHD don't have a *reading* problem, they have a *starting* and *filtering* problem. Ten open tabs never get read. One five-item briefing does. The bot does the filtering and summarizing so the only thing left is to read five short blurbs.
 
-> Status: **MVP works end-to-end locally** (onboarding → fetch → summarize → deliver). Summary quality is measured with an LLM-as-judge eval harness (~94–98/100). Scheduler (automatic daily delivery) is the next milestone — today briefings are triggered on demand with `/briefing`.
+> Status: **MVP works end-to-end locally** (onboarding → fetch → summarize → deliver), with automatic daily delivery at your chosen time. Summary quality is measured with an LLM-as-judge eval harness (~94–98/100). Remaining before a hands-off self-host: an always-on hosting decision.
 
 ---
 
@@ -23,6 +23,7 @@ The goal was to build something I'd actually use every day while exercising real
 - 🧠 **ADHD-friendly summaries** — Claude condenses each article into a scannable blurb with an estimated read time, guided by explicit content guidelines.
 - 🎚️ **Tone as a user choice** — `neutral` / `warm` / `direct` presets (`/tone`), so the briefing matches how you like to be talked to.
 - 🗂️ **Incremental source management** — `/sources`, `/addsource`, `/removesource` without re-running onboarding.
+- ⏰ **Daily delivery on schedule** — timezone-aware, one briefing per day, and a briefing missed while the bot was off is delivered on the next start instead of being lost.
 - 📥 **One-shot inbox** — paste any link (no command) and it's delivered in your next briefing, then forgotten.
 - ✅ **Deduplication** — you never see the same article twice.
 - 💸 **Cost observability** — every briefing's token usage and estimated USD cost is tracked, so a pay-as-you-go deployment is never a black box (see [Cost control](#cost-control)).
@@ -121,6 +122,7 @@ The SQLite database lives on the `adhd_data` volume (`DB_PATH=/data/adhd.db` is 
 | `/addsource <url…>` | Add one or more sources (incremental, deduped) |
 | `/removesource <n\|url>` | Remove a source by number or URL |
 | `/tone [neutral\|warm\|direct]` | Show or set the briefing tone |
+| `/time [HH:MM] [tz]` | Show or set the daily briefing time (e.g. `/time 07:30 Europe/London`) |
 | *(paste a link)* | Adds it to a one-shot inbox, delivered in your next briefing |
 
 ## Testing & quality
@@ -157,7 +159,7 @@ The bot runs on the pay-as-you-go Claude API, so cost is treated as something yo
 **Recommended before you scale:**
 
 1. Set a **spend limit and billing alerts** in the [Anthropic Console](https://console.anthropic.com) — the hard backstop, independent of the app.
-2. Once the scheduler lands, route scheduled briefings through the **Message Batches API** for a 50% discount (they're not latency-sensitive); keep on-demand `/briefing` synchronous.
+2. Route scheduled briefings through the **Message Batches API** for a 50% discount (they're not latency-sensitive); keep on-demand `/briefing` synchronous.
 
 > Prompt caching is intentionally *not* used here: the system prompt is below Haiku's minimum cacheable prefix, so it would never actually cache.
 
@@ -181,7 +183,6 @@ More detail in [`docs/dev-guide.md`](docs/dev-guide.md) (setup, commands, where 
 
 ## Roadmap
 
-- [ ] **Scheduler** — automatic daily delivery at a chosen time (APScheduler; idempotency table already in the schema).
 - [ ] Tone-preset A/B in the eval harness.
 - [ ] *Retrieval* phase — searchable history of past briefings.
 - [ ] *Action* phase — per-article action suggestions, weekly retrospective.

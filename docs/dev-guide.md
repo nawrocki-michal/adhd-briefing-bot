@@ -69,8 +69,9 @@ src/adhd_briefing/
 ├── notify/
 │   ├── base.py          #   NotificationService (ABC)
 │   └── telegram.py      #   TelegramNotifier (Markdown→plain fallback)
+├── scheduler.py         # M5 — codzienna dostawa (APScheduler, catch-up, idempotencja)
 ├── cli.py               # M3 — ręczne uruchomienie briefingu
-└── bot.py               # M4 — Telegram entry pointy (/start, /briefing)
+└── bot.py               # M4 — Telegram entry pointy (/start, /briefing, /time, …)
 
 evals/                   # M3.5 — eval harness (NIE w pytest; realne LLM calls)
 ├── golden_set.py        #   syntetyczne źródła + warianty (good + bad)
