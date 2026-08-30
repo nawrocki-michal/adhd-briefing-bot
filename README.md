@@ -140,6 +140,8 @@ PYTHONPATH=src .venv/bin/python -m evals.prompt_variants    # A/B prompt compari
 
 Rule of thumb in this repo: **changing the summarizer prompt means re-running the eval** before committing.
 
+The harness is also maintained as a standalone project, `adhd-summary-evals`, where it is documented in more depth — the full rubric and the reasoning behind its weights, how the golden set is designed to be self-validating, and how to point the harness at a summarizer other than this one.
+
 ## Cost control
 
 The bot runs on the pay-as-you-go Claude API, so cost is treated as something you can see and bound — not a surprise on your invoice.
