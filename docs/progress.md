@@ -1,20 +1,22 @@
 # ADHD Briefing App — Progress
 
-**Ostatnia aktualizacja:** 2026-06-22
-**Status:** MVP Faza C (Capture) działa end-to-end + eval harness. Pozostało: hosting, scheduler, packaging.
+**Ostatnia aktualizacja:** 2026-08-30
+**Status:** MVP Faza C (Capture) działa end-to-end + eval harness + **scheduler (M5)**.
+Pozostało: **decyzja hostingowa** (jedyna rzecz między nami a botem 24/7).
 
-> ▶️ **Następna sesja — start tutaj:** (1) przeklik na żywo tonu + read-time (`/tone warm` →
-> `/briefing`; patrz blok końca sesji w CLAUDE.md), (2) **M5 scheduler** — PRZED kodowaniem
-> context7 dla APScheduler + integracja z event-loopem python-telegram-bot. Reszta TODO niżej.
+> ▶️ **Następna sesja — start tutaj:** (1) **przeklik M5 na żywo** — `/time`, restart bota po
+> godzinie briefingu (catch-up), sprawdzenie że o wybranej godzinie briefing przychodzi sam;
+> (2) do przeklikania z poprzedniej sesji: ton + read-time (`/tone warm` → `/briefing`);
+> (3) 🔴 **hosting** (Fly.io / Oracle / własny sprzęt). Reszta TODO niżej.
 
 ---
 
 ## TL;DR — gdzie jesteśmy
 
-Działający Telegram bot: `/start` (konwersacyjny onboarding) → `/briefing` (pobiera feedy
-Twoich źródeł, streszcza przez Claude Haiku, dostarcza ADHD-friendly briefing). Treści po
-**angielsku**. Jakość streszczeń mierzona evalem (LLM-as-judge): **98/100** po A/B promptów.
-Wszystko lokalne — **brak jeszcze hostingu (always-on) i automatycznego schedulera**.
+Działający Telegram bot: `/start` (konwersacyjny onboarding) → briefing **codziennie o wybranej
+godzinie** (albo `/briefing` na żądanie): pobiera feedy Twoich źródeł, streszcza przez Claude Haiku,
+dostarcza ADHD-friendly briefing. Treści po **angielsku**. Jakość streszczeń mierzona evalem
+(LLM-as-judge): **98/100** po A/B promptów. Wszystko lokalne — **brak już tylko hostingu (always-on)**.
 
 **Jak uruchomić / wrócić do projektu:** patrz `docs/dev-guide.md`.
 
@@ -70,7 +72,7 @@ Wszystko lokalne — **brak jeszcze hostingu (always-on) i automatycznego schedu
   - oba strumienie (stałe źródła + inbox) wpadają do jednego briefingu; `prepare` doczytuje inbox z DB
   - ⚠️ do czasu M5 „o wybranej godzinie" = przy ręcznym `/briefing`; scheduler dołoży automatyzm bez zmian w tej logice
 
-**Stan testów:** 95/95 pytest zielonych (69 → +17 ton/read-time/migracja → +9 obserwowalność kosztów), ruff czysty.
+**Stan testów:** 126/126 pytest zielonych (95 → +31 scheduler M5), ruff bez nowych ustaleń.
 
 ### Obserwowalność kosztów LLM (pay-as-you-go)
 - [x] **Usage tracking per briefing:** summarizer łapie `response.usage`, graf agreguje
@@ -80,6 +82,48 @@ Wszystko lokalne — **brak jeszcze hostingu (always-on) i automatycznego schedu
 - ⏭️ **Następne dźwignie kosztu (do zrobienia):** (1) twardy spend cap w Console Anthropic,
   (2) Batch API (−50%) dla briefingów ze schedulera — wpiąć przy M5 (interaktywny `/briefing`
   zostaje synchroniczny). Prompt caching pominięty — system prompt <4096 tok (próg Haiku).
+
+### Scheduler (M5) — ZROBIONE 2026-08-30
+- [x] `src/adhd_briefing/scheduler.py` — `BriefingScheduler` na `AsyncIOScheduler`, jeden cron-job
+  per użytkownik, `CronTrigger(hour, minute, timezone=ZoneInfo(users.timezone))`.
+- [x] **Idempotencja** przez `briefing_runs`: `_fire()` sprawdza `is_run_done` przed dostawą,
+  zapisuje `running` → `completed`/`failed`. Data runu liczona **w strefie użytkownika**, nie
+  serwera (inaczej briefing o 23:30 Europe/Warsaw wpadałby serwerowi w UTC na inną datę).
+- [x] **Catch-up po restarcie** — przy starcie, jeśli godzina użytkownika już minęła, a dzisiejszego
+  runu nie ma jako `completed`, briefing idzie od razu z adnotacją „⏰ Catching up — this one is late."
+  Status `failed` ≠ `completed`, więc nieudany dzień jest ponawiany przy następnym starcie.
+- [x] `/time [HH:MM] [IANA tz]` — zmiana pory bez nadpisującego `/start` (spójnie z `/tone`, M4.6);
+  `db.set_schedule()`. Bez argumentów pokazuje bieżącą porę, strefę i **następne odpalenie**.
+- [x] Joby re-syncowane punktowo (`sync_user`) po `/start`, `/time`, `/addsource`, `/removesource` —
+  nowa godzina działa od razu, bez restartu. Użytkownik bez źródeł nie ma joba (0 pustych briefingów).
+- [x] Wpięcie w cykl życia PTB: `post_init` (scheduler startuje **na końcu** — catch-up potrafi
+  dostarczyć od razu, więc graf i notifier muszą już być w `bot_data`) + `post_shutdown`.
+- [x] `_deliver_briefing(bot_data, chat_id, late=)` wyodrębnione z handlera `/briefing` — scheduler
+  i handler idą tą samą ścieżką (bez zależności od `Update`).
+- [x] 31 nowych testów (126/126 zielonych), ruff bez nowych ustaleń.
+
+**Decyzja: MemoryJobStore zamiast SQLAlchemyJobStore** (odejście od `docs/architecture.md`).
+Harmonogram ma już trwałe źródło prawdy — `users.briefing_time`/`users.timezone`. Trwały jobstore
+byłby drugą kopią tego stanu (do synchronizacji przy każdej zmianie godziny, z ryzykiem dryfu)
+i wymuszałby joby jako funkcje modułowe z globalnym rejestrem zależności zamiast domknięć na `db`.
+Joby są więc **odtwarzane z bazy** przy starcie (`sync_all`). Trwałość, której naprawdę potrzebujemy,
+daje `briefing_runs` (idempotencja + catch-up).
+
+**Niuanse APScheduler wyłapane po drodze (warte zapamiętania):**
+- `replace_existing=True` **nie działa**, dopóki scheduler nie wystartował — joby czekają w
+  `_pending_jobs`, gdzie ten sam `id` się dubluje (a dwa joby = dwie dostawy). `sync_user` robi
+  `unschedule()` przed `add_job()`.
+- `AsyncIOScheduler.shutdown()` tylko *planuje* zamknięcie przez `call_soon_threadsafe` — zaraz po
+  powrocie `scheduler.running` wciąż jest `True`. `BriefingScheduler.shutdown()` jest `async`
+  i oddaje sterowanie pętli, żeby PTB nie zamknął jej w trakcie.
+- `context7 był niedostępny` w sesji, w której to powstawało — API zweryfikowane bezpośrednio na
+  zainstalowanym pakiecie (`inspect.signature` / `getdoc` / źródło `AsyncIOScheduler`).
+- `tzdata` dodane do zależności — obrazy `python:*-slim` bywają bez `/usr/share/zoneinfo`,
+  a wtedy `ZoneInfo("Europe/Warsaw")` rzuca w kontenerze mimo że lokalnie działa.
+
+**Świadomie NIE zrobione:** ręczny `/briefing` nie zapisuje `briefing_runs` — to rejestr schedulera.
+Podgląd o 6:00 nie ma kasować briefingu zaplanowanego na 7:30; powtórzeniom treści i tak zapobiega
+`seen_articles`.
 
 ---
 
@@ -108,8 +152,7 @@ Cel: bot ma działać 24/7, nie tylko lokalnie.
   neutral to ten sam prompt co przy 98, różnica to nondeterminizm LLM/judge, nie regresja.
 
 ### Następne milestone'y (kolejność wg rekomendacji)
-- [ ] **M5 — Scheduler** — automatyczny codzienny briefing (APScheduler + SQLAlchemyJobStore,
-  timezone-aware, idempotencja przez tabelę `briefing_runs` — już w schemacie)
+- [x] **M5 — Scheduler** — ZROBIONE (szczegóły wyżej)
 - [x] **M6 — README + Dockerfile** — README EN (z akapitem tradeoff o LangGraph), LICENSE (MIT),
   Dockerfile + .dockerignore. Repo gotowe do publikacji; sekrety/historia zweryfikowane jako czyste,
   `.claude/settings.local.json` odpięty z gita. (Decyzja hostingowa nadal otwarta — Dockerfile działa

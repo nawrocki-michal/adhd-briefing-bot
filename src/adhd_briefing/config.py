@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     briefing_max_articles: int = 5
     summarizer_model: str = "claude-haiku-4-5-20251001"
     llm_concurrency: int = 3
+    # Scheduler (M5)
+    briefing_catch_up: bool = True  # dostarcz briefing pominięty przy wyłączonym bocie
+    scheduler_misfire_grace_time: int = 3600  # tolerancja spóźnionego odpalenia crona (s)
 
 
 settings = Settings()

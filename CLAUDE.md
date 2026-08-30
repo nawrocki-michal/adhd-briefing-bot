@@ -6,10 +6,11 @@ Projekt rozwijający umiejętności techniczne (multi-agent AI) na realnym, codz
 Właściciel: PM rozwijający umiejętności techniczne, z ADHD — jednocześnie główny użytkownik.
 Cel: działający, self-hostable bot na GitHubie, który realnie rozwiązuje codzienny problem.
 
-## ⚡ Aktualny stan (2026-06-22) — CZYTAJ NAJPIERW
+## ⚡ Aktualny stan (2026-08-30) — CZYTAJ NAJPIERW
 
-**MVP Faza C działa end-to-end lokalnie.** Telegram bot: `/start` (onboarding) → `/briefing`
-(feedy → Haiku → ADHD-friendly briefing). Treści po **angielsku**. Jakość mierzona evalem: **~94–98/100**
+**MVP Faza C działa end-to-end lokalnie, z automatyczną codzienną dostawą.** Telegram bot:
+`/start` (onboarding) → briefing **codziennie o wybranej godzinie** (albo `/briefing` na żądanie):
+feedy → Haiku → ADHD-friendly briefing. Treści po **angielsku**. Jakość mierzona evalem: **~94–98/100**
 (wariancja 2-case golden setu; neutral prompt niezmieniony od wdrożenia wariantu C).
 
 - **Pełny stan + następne kroki:** `docs/progress.md`
@@ -18,27 +19,25 @@ Cel: działający, self-hostable bot na GitHubie, który realnie rozwiązuje cod
 
 **Zrobione:** M0 bootstrap, M1 SourceProvider (+auto-discovery RSS), M2 SQLite, M3 BriefingGraph+CLI,
 M4 Telegram+Onboarding, i18n→EN, M3.5 eval harness + A/B promptów, M4.6 zarządzanie źródłami
-(`/sources` `/addsource` `/removesource`) + inbox jednorazowy, **tone-as-user-choice (presety
-`neutral`/`warm`/`direct`: onboarding + `users.tone` +migracja + param summarizera + `/tone`) +
-read-time per artykuł**. 95/95 testów, ruff czysty.
+(`/sources` `/addsource` `/removesource`) + inbox jednorazowy, tone-as-user-choice (presety
+`neutral`/`warm`/`direct`) + read-time per artykuł, M6 README+Dockerfile+LICENSE, obserwowalność
+kosztów LLM, **M5 scheduler (codzienna dostawa timezone-aware + catch-up + `/time`)**.
+126/126 testów, ruff bez nowych ustaleń.
 
 **Nierozstrzygnięte / następne:** (1) 🔴 **hosting always-on** (Fly.io vs Oracle VM vs własny sprzęt —
-Vercel odrzucony), (2) M5 scheduler (odblokuje „briefing o godzinie" — dziś inbox konsumuje ręczny
-`/briefing`), (3) M6 README+Dockerfile.
+Vercel odrzucony) — **jedyna rzecz między nami a botem 24/7**, (2) przeklik M5 na żywo,
+(3) Batch API (−50%) dla briefingów ze schedulera.
 
-> ⚠️ **Stan na koniec sesji 2026-06-22 — START TUTAJ NASTĘPNYM RAZEM:**
-> - **Zrobione i zacommitowane dziś:** (a) fix bug — BriefingGraph był checkpointowany, reducer
->   `operator.add` akumulował stare/usunięte źródła między `/briefing` (svpg wracało); briefing
->   teraz bez checkpointera (Bug #6). (b) M4.6 przeklikane na żywym Telegramie — działa.
->   (c) tone-as-user-choice + read-time (commit `693e2ab`). 95/95 testów, ruff czysty.
-> - **Do przeklikania na żywo (NIE zrobione):** ton + read-time. Bot stoi — odpal
->   `PYTHONPATH=src .venv/bin/python -m adhd_briefing.bot`, potem: `/tone` → `/tone warm` →
->   `/briefing` (sprawdź „⏱ N min read" i cieplejszy ton); opcjonalnie `/start` od nowa, by
->   zobaczyć nowy krok wyboru tonu w onboardingu.
-> - **Następny milestone:** 🔴 M5 scheduler (APScheduler + SQLAlchemyJobStore, timezone-aware,
->   idempotencja przez `briefing_runs` — tabela już jest). PRZED kodowaniem: context7 dla
->   APScheduler + integracja z event-loopem python-telegram-bot (job wywołuje tę samą logikę
->   co handler `/briefing`). Potem M6 (README+Dockerfile) i decyzja hostingowa (Fly.io/Oracle/sprzęt).
+> ⚠️ **Stan na koniec sesji 2026-08-30 — START TUTAJ NASTĘPNYM RAZEM:**
+> - **Zrobione dziś:** M5 scheduler — `src/adhd_briefing/scheduler.py` (`BriefingScheduler`),
+>   komenda `/time`, `db.set_schedule()`, wpięcie w `post_init`/`post_shutdown`, catch-up
+>   po restarcie, `_deliver_briefing()` wyodrębnione z handlera `/briefing`. 31 nowych testów.
+> - **Do przeklikania na żywo (NIE zrobione):** (a) M5 — `/time`, briefing sam o wybranej
+>   godzinie, restart bota po tej godzinie → czy przychodzi catch-up z „⏰ Catching up";
+>   (b) zaległe z poprzedniej sesji: ton + read-time (`/tone warm` → `/briefing`).
+>   Odpal: `PYTHONPATH=src .venv/bin/python -m adhd_briefing.bot`.
+> - **Następny milestone:** 🔴 **decyzja hostingowa** (Fly.io / Oracle Always Free / własny sprzęt).
+>   Kod i Dockerfile są gotowe — nie wymagają przeróbek pod żaden z tych wariantów.
 
 **Konwencja uruchamiania:** testy przez `pytest` (ma `pythonpath=["src"]`); moduły przez
 `PYTHONPATH=src .venv/bin/python -m adhd_briefing.<bot|cli>` lub `-m evals.<run|prompt_variants>`.
@@ -52,7 +51,7 @@ Vercel odrzucony), (2) M5 scheduler (odblokuje „briefing o godzinie" — dziś
 | Delivery | Telegram Bot API | python-telegram-bot |
 | Storage | SQLite | Zero konfiguracji, WAL mode |
 | Checkpointer | SqliteSaver | NIE MemorySaver — gubi stan po restarcie |
-| Scheduler | APScheduler + SqliteJobStore | Per-user timezone-aware |
+| Scheduler | APScheduler (MemoryJobStore, joby z bazy) | Per-user timezone-aware; patrz Bug #7 |
 | Fetch | feedparser (RSS) + trafilatura (fallback) | Auto-detect RSS vs strona |
 | LLM | Claude API | Summarizer node |
 
@@ -120,6 +119,29 @@ app.bot_data["briefing"] = build_briefing_graph(db, summarizer)  # ŻADNEGO chec
 Dedup między dniami zapewnia tabela `seen_articles`, nie checkpoint. Tylko OnboardingGraph
 (HITL) używa checkpointera.
 
+### Bug #7 — APScheduler: `replace_existing` nie działa przed `start()` (OBOWIĄZKOWE)
+Dopóki scheduler nie wystartował, `add_job()` odkłada joby do `_pending_jobs`, gdzie
+`replace_existing=True` jest **ignorowane** — ten sam `id` się dubluje, a dwa joby to dwie
+dostawy briefingu. `BriefingScheduler.sync_user()` robi więc `unschedule()` **przed** `add_job()`.
+```python
+self.unschedule(chat_id)          # ← bez tego duplikat, gdy sync poleci przed start()
+self.scheduler.add_job(..., id=job_id(chat_id), replace_existing=True)
+```
+Druga pułapka tego samego pakietu: `AsyncIOScheduler.shutdown()` tylko *planuje* zamknięcie przez
+`call_soon_threadsafe` — zaraz po powrocie `scheduler.running` wciąż jest `True`. Dlatego
+`BriefingScheduler.shutdown()` jest `async` i oddaje sterowanie pętli (`await asyncio.sleep(0)`),
+inaczej PTB zamknąłby pętlę w trakcie zamykania schedulera.
+
+### Scheduler — MemoryJobStore, NIE SQLAlchemyJobStore (świadome odejście od architektury)
+`docs/architecture.md` zakładał trwały jobstore. Odrzucone: harmonogram ma już trwałe źródło prawdy
+(`users.briefing_time`/`users.timezone`), więc jobstore byłby jego drugą kopią (dryf przy każdej
+zmianie godziny) i wymuszałby joby jako funkcje modułowe zamiast domknięć na `db`. Joby są
+**odtwarzane z bazy** przy starcie (`sync_all`) i punktowo (`sync_user`) po `/start`, `/time`
+i zmianach źródeł. Trwałość, której faktycznie potrzebujemy, daje `briefing_runs`:
+idempotencja (jeden briefing per user per dzień, data liczona **w strefie użytkownika**)
++ catch-up briefingu pominiętego przy wyłączonym bocie. Ręczny `/briefing` **nie** zapisuje
+`briefing_runs` — to rejestr schedulera.
+
 ### Dodatkowy fix (M4.5) — RSSProvider pobiera feed przez httpx z UA przeglądarki
 feedparser z domyślnym UA bywa blokowany (403) przez Substack/O'Reilly → feed wracał pusty.
 Pobieramy przez `httpx` z UA przeglądarki, potem parsujemy tekst. Patrz `sources/rss.py`.
@@ -151,9 +173,9 @@ class NotificationService(ABC): # TelegramNotifier | (przyszłość: WhatsApp)
 2. ✅ Znormalizowany schemat SQLite
 3. ✅ `OnboardingGraph` z AsyncSqliteSaver i interrupt()
 4. ✅ `BriefingGraph` z Send() fan-out i reducerami
-5. ⬜ Scheduler (APScheduler + SQLAlchemyJobStore) — **M5, do zrobienia**
+5. ✅ Scheduler (APScheduler + MemoryJobStore odtwarzany z bazy — patrz wyżej)
 6. ✅ Telegram bot integration
-7. ⬜ Dockerfile + README — **M6, do zrobienia** (+ decyzja hostingowa)
+7. ✅ Dockerfile + README (decyzja hostingowa nadal otwarta)
 
 Aktualny tracker: `docs/progress.md`.
 

@@ -1,4 +1,4 @@
-"""Telegram bot — entry pointy /start (onboarding) i /briefing (briefing on-demand).
+"""Telegram bot — /start (onboarding), /briefing (on-demand) i scheduler (codziennie).
 
 Uruchomienie:
     PYTHONPATH=src .venv/bin/python -m adhd_briefing.bot
@@ -22,15 +22,24 @@ from telegram.ext import (
 from adhd_briefing.config import settings
 from adhd_briefing.db import Database
 from adhd_briefing.graphs.briefing import build_briefing_graph
-from adhd_briefing.graphs.onboarding import build_onboarding_graph, parse_sources, parse_tone
+from adhd_briefing.graphs.onboarding import (
+    build_onboarding_graph,
+    normalize_time,
+    parse_sources,
+    parse_tone,
+)
 from adhd_briefing.llm import Summarizer
 from adhd_briefing.models import Article
 from adhd_briefing.notify import TelegramNotifier
+from adhd_briefing.scheduler import BriefingScheduler, resolve_timezone
 
 logging.basicConfig(
     format="%(asctime)s — %(name)s — %(levelname)s — %(message)s", level=logging.INFO
 )
 logger = logging.getLogger("adhd_briefing.bot")
+
+# Doklejane, gdy scheduler nadrabia briefing pominięty przy wyłączonym bocie.
+_LATE_NOTE = "⏰ _Catching up — this one is late._\n\n"
 
 
 def _onboarding_config(chat_id: str) -> dict:
@@ -54,15 +63,31 @@ def _initial_briefing_state(chat_id: str, sources: list[str], tone: str = "neutr
     }
 
 
-async def _reply_onboarding(update: Update, result: dict) -> None:
+async def _reply_onboarding(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, result: dict
+) -> None:
     interrupts = result.get("__interrupt__")
     if interrupts:
         await update.message.reply_text(interrupts[0].value)
-    elif result.get("setup_complete"):
-        await update.message.reply_text(
-            "✅ All set! Send /briefing for a preview now, or just paste article "
-            "links anytime to add them to your next briefing."
-        )
+        return
+    if not result.get("setup_complete"):
+        return
+    # Onboarding domknięty — zaplanuj codzienny briefing od razu, bez restartu bota.
+    chat_id = str(update.effective_chat.id)
+    await _sync_schedule(context, chat_id)
+    when = result.get("briefing_time") or "your chosen time"
+    await update.message.reply_text(
+        f"✅ All set! I'll send your briefing daily at {when}. "
+        "Send /briefing for a preview now, or just paste article links "
+        "anytime to add them to your next briefing."
+    )
+
+
+async def _sync_schedule(context: ContextTypes.DEFAULT_TYPE, chat_id: str) -> None:
+    """Przebudowuje job schedulera z aktualnego wiersza users (no-op bez schedulera)."""
+    scheduler: BriefingScheduler | None = context.bot_data.get("scheduler")
+    if scheduler:
+        await scheduler.sync_user(chat_id)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -80,7 +105,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         },
         _onboarding_config(chat_id),
     )
-    await _reply_onboarding(update, result)
+    await _reply_onboarding(update, context, result)
 
 
 async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -90,7 +115,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     snapshot = await graph.aget_state(config)
     if snapshot.next:  # onboarding trwa — przekaż odpowiedź do grafu
         result = await graph.ainvoke(Command(resume=update.message.text), config)
-        await _reply_onboarding(update, result)
+        await _reply_onboarding(update, context, result)
         return
 
     # Poza onboardingiem: wklejone linki → inbox jednorazowy (capture).
@@ -131,14 +156,34 @@ async def briefing(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     await update.message.reply_text("⏳ Generating your briefing…")
-    graph = context.bot_data["briefing"]
+    # Ręczny /briefing NIE zapisuje briefing_runs — to rejestr schedulera.
+    # Podgląd o 6:00 nie ma kasować briefingu zaplanowanego na 7:30;
+    # powtórzeniom treści zapobiega seen_articles.
+    await _deliver_briefing(context.bot_data, chat_id)
+
+
+async def _deliver_briefing(bot_data: dict, chat_id: str, *, late: bool = False) -> dict:
+    """Generuje i dostarcza briefing. Wspólne dla handlera /briefing i schedulera.
+
+    Nie zależy od `Update` — scheduler woła to bez żadnej wiadomości od użytkownika.
+    Zwraca stan grafu (przydatne w testach i do logowania kosztu).
+    """
+    db: Database = bot_data["db"]
+    user = await db.get_user(chat_id)
+    if not user or not user.get("sources"):
+        return {}
+
+    graph = bot_data["briefing"]
     state = await graph.ainvoke(
         _initial_briefing_state(chat_id, user["sources"], user.get("tone") or "neutral"),
         _briefing_config(chat_id),
     )
 
-    notifier: TelegramNotifier = context.bot_data["notifier"]
-    await notifier.send(chat_id, state["briefing"])
+    notifier: TelegramNotifier = bot_data["notifier"]
+    message = state["briefing"]
+    if late:
+        message = _LATE_NOTE + message
+    await notifier.send(chat_id, message)
 
     summarized = state.get("summarized_articles", [])
     if summarized:
@@ -170,6 +215,7 @@ async def briefing(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Inbox jednorazowy: czyść wszystko, co próbowaliśmy dostarczyć (one-shot,
     # bez ponawiania martwych linków). Dostarczone URL-e są już oznaczone jako seen.
     await db.clear_pending(chat_id, state.get("pending_urls", []))
+    return state
 
 
 def _format_sources(sources: list[str]) -> str:
@@ -210,6 +256,7 @@ async def addsource_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await update.message.reply_text("Usage: /addsource <url> [url2 …]")
         return
     sources = await db.add_sources(chat_id, urls)
+    await _sync_schedule(context, chat_id)
     await update.message.reply_text(
         f"✅ Now following {len(sources)} sources:\n" + _format_sources(sources)
     )
@@ -235,6 +282,7 @@ async def removesource_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         )
         return
     remaining = await db.remove_source(chat_id, target)
+    await _sync_schedule(context, chat_id)
     msg = f"🗑️ Removed. {len(remaining)} sources left."
     if remaining:
         msg += "\n" + _format_sources(remaining)
@@ -261,6 +309,48 @@ async def tone_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f"✅ Briefing tone set to *{tone}*.", parse_mode="Markdown")
 
 
+async def time_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/time [HH:MM] [IANA timezone] — pora briefingu bez przechodzenia /start od nowa."""
+    chat_id = str(update.effective_chat.id)
+    db: Database = context.bot_data["db"]
+    user = await db.get_user(chat_id)
+    if not user:
+        await update.message.reply_text("First send /start to set up your briefing.")
+        return
+
+    if not context.args:
+        tz = user.get("timezone") or settings.default_timezone
+        current = user.get("briefing_time") or "not set"
+        lines = [f"Briefing time: *{current}* ({tz})."]
+        scheduler: BriefingScheduler | None = context.bot_data.get("scheduler")
+        upcoming = scheduler.next_run(chat_id) if scheduler else None
+        if upcoming:
+            lines.append(f"Next one: {upcoming:%a %d %b, %H:%M %Z}.")
+        lines.append("Change it with /time 07:30 (optionally /time 07:30 Europe/London).")
+        await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+        return
+
+    briefing_time = normalize_time(context.args[0])
+    tz_name = None
+    if len(context.args) > 1:
+        candidate = context.args[1]
+        # Waliduj strefę zanim ją zapiszesz — zła nazwa uciszyłaby scheduler na cicho.
+        if resolve_timezone(candidate).key != candidate:
+            await update.message.reply_text(
+                f"Unknown timezone {candidate!r}. Use an IANA name like Europe/Warsaw."
+            )
+            return
+        tz_name = candidate
+
+    await db.set_schedule(chat_id, briefing_time, tz_name)
+    await _sync_schedule(context, chat_id)
+
+    tz = tz_name or user.get("timezone") or settings.default_timezone
+    await update.message.reply_text(
+        f"✅ Briefing time set to *{briefing_time}* ({tz}).", parse_mode="Markdown"
+    )
+
+
 async def _post_init(app: Application) -> None:
     db = Database(settings.db_path)
     await db.init()
@@ -279,7 +369,29 @@ async def _post_init(app: Application) -> None:
     # Dedup między dniami zapewnia tabela seen_articles, nie checkpoint.
     app.bot_data["briefing"] = build_briefing_graph(db, summarizer)
     app.bot_data["notifier"] = TelegramNotifier(app.bot)
-    logger.info("Bot zainicjalizowany — onboarding + briefing gotowe.")
+
+    # Scheduler startuje NA KOŃCU: catch-up potrafi dostarczyć briefing od razu,
+    # więc graf i notifier muszą już być w bot_data. AsyncIOScheduler wiąże się
+    # z bieżącą pętlą asyncio — post_init działa wewnątrz pętli PTB, więc to tutaj.
+    async def deliver(chat_id: str, *, late: bool = False) -> None:
+        await _deliver_briefing(app.bot_data, chat_id, late=late)
+
+    scheduler = BriefingScheduler(
+        db,
+        deliver,
+        misfire_grace_time=settings.scheduler_misfire_grace_time,
+        catch_up=settings.briefing_catch_up,
+    )
+    app.bot_data["scheduler"] = scheduler
+    await scheduler.start()
+
+    logger.info("Bot zainicjalizowany — onboarding + briefing + scheduler gotowe.")
+
+
+async def _post_shutdown(app: Application) -> None:
+    scheduler: BriefingScheduler | None = app.bot_data.get("scheduler")
+    if scheduler:
+        await scheduler.shutdown()
 
 
 def main() -> None:
@@ -290,6 +402,7 @@ def main() -> None:
         Application.builder()
         .token(settings.telegram_bot_token)
         .post_init(_post_init)
+        .post_shutdown(_post_shutdown)
         .build()
     )
     app.add_handler(CommandHandler("start", start))
@@ -298,6 +411,7 @@ def main() -> None:
     app.add_handler(CommandHandler("addsource", addsource_cmd))
     app.add_handler(CommandHandler("removesource", removesource_cmd))
     app.add_handler(CommandHandler("tone", tone_cmd))
+    app.add_handler(CommandHandler("time", time_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
     logger.info("Start pollingu…")
     app.run_polling()

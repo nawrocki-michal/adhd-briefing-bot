@@ -265,3 +265,20 @@ async def test_usage_total_sums_runs(db):
     assert totals["runs"] == 2
     assert totals["input_tokens"] == 2_000_000
     assert totals["cost_usd"] == pytest.approx(2.0)  # 2 × $1.0
+
+
+async def test_set_schedule_updates_time_only(db):
+    await db.upsert_user("s1", ["ai"], ["https://e.com"], "07:30", "Europe/Warsaw", "warm")
+    await db.set_schedule("s1", "21:15")
+    user = await db.get_user("s1")
+    assert user["briefing_time"] == "21:15"
+    assert user["timezone"] == "Europe/Warsaw"  # strefa nietknięta
+    assert user["tone"] == "warm"  # reszta profilu nietknięta (jak set_tone)
+    assert user["sources"] == ["https://e.com"]
+
+
+async def test_set_schedule_updates_timezone_when_given(db):
+    await db.upsert_user("s2", [], ["https://e.com"], "07:30", "Europe/Warsaw")
+    await db.set_schedule("s2", "06:00", "America/New_York")
+    user = await db.get_user("s2")
+    assert (user["briefing_time"], user["timezone"]) == ("06:00", "America/New_York")
