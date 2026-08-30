@@ -11,6 +11,12 @@ python3 -m venv .venv
 cp .env.example .env        # i uzupełnij sekrety (patrz niżej)
 ```
 
+> ⚠️ **Nie trzymaj `.venv` (ani projektu) w folderze synchronizowanym przez iCloud** — Desktop/Documents
+> z włączonym „Desktop & Documents Folders". iCloud eksmituje pliki site-packages do chmury (`dataless`),
+> a wtedy **każdy zimny `import` się blokuje** i nawet mockowany `pytest` potrafi wisieć minutami przy
+> 0% CPU. Trzymaj venv poza iCloud (np. `~/venvs/adhd-briefing`) albo projekt poza Desktop/Documents.
+> Diagnoza i doraźny fix: `progress.md` → „Niuanse / dług techniczny".
+
 `.env` (ignorowany przez git) wymaga:
 - `TELEGRAM_BOT_TOKEN` — z @BotFather (Telegram: /newbot)
 - `ANTHROPIC_API_KEY` — z console.anthropic.com

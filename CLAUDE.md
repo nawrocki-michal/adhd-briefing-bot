@@ -32,10 +32,13 @@ Vercel odrzucony) — **jedyna rzecz między nami a botem 24/7**, (2) przeklik M
 > - **Zrobione dziś:** M5 scheduler — `src/adhd_briefing/scheduler.py` (`BriefingScheduler`),
 >   komenda `/time`, `db.set_schedule()`, wpięcie w `post_init`/`post_shutdown`, catch-up
 >   po restarcie, `_deliver_briefing()` wyodrębnione z handlera `/briefing`. 31 nowych testów.
-> - **Do przeklikania na żywo (NIE zrobione):** (a) M5 — `/time`, briefing sam o wybranej
->   godzinie, restart bota po tej godzinie → czy przychodzi catch-up z „⏰ Catching up";
->   (b) zaległe z poprzedniej sesji: ton + read-time (`/tone warm` → `/briefing`).
->   Odpal: `PYTHONPATH=src .venv/bin/python -m adhd_briefing.bot`.
+> - **Zweryfikowane na żywo (2026-08-30):** 126/126 pytest; harness schedulera (wstrzykiwany zegar,
+>   realne SQLite) **10/10** — planowanie, timezone-aware next-run, catch-up raz, idempotencja, skip
+>   bez źródeł; CLI end-to-end (realny RSS + Haiku, read-time + koszt ~$0.0126). **Pozostaje** końcowy
+>   przeklik na żywym Telegramie na hoście: cron o wybranej godzinie (wall-clock) + catch-up po restarcie
+>   PTB. Odpal bota: `PYTHONPATH=src .venv/bin/python -m adhd_briefing.bot`.
+> - **⚠️ Środowisko:** nie trzymaj `.venv` w folderze iCloud (Desktop/Documents) — dataless site-packages
+>   blokują `import` i suite „wisi" przy 0% CPU. Fix: `brctl download` / `.venv` poza iCloud. Szczegóły: `docs/progress.md`.
 > - **Następny milestone:** 🔴 **decyzja hostingowa** (Fly.io / Oracle Always Free / własny sprzęt).
 >   Kod i Dockerfile są gotowe — nie wymagają przeróbek pod żaden z tych wariantów.
 

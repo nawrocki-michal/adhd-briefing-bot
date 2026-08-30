@@ -4,10 +4,11 @@
 **Status:** MVP Faza C (Capture) działa end-to-end + eval harness + **scheduler (M5)**.
 Pozostało: **decyzja hostingowa** (jedyna rzecz między nami a botem 24/7).
 
-> ▶️ **Następna sesja — start tutaj:** (1) **przeklik M5 na żywo** — `/time`, restart bota po
-> godzinie briefingu (catch-up), sprawdzenie że o wybranej godzinie briefing przychodzi sam;
-> (2) do przeklikania z poprzedniej sesji: ton + read-time (`/tone warm` → `/briefing`);
-> (3) 🔴 **hosting** (Fly.io / Oracle / własny sprzęt). Reszta TODO niżej.
+> ▶️ **Następna sesja — start tutaj:** (1) 🔴 **hosting** (Fly.io / Oracle / własny sprzęt) — jedyna
+> rzecz między nami a botem 24/7; (2) po wdrożeniu na hosta: **końcowy przeklik M5 na żywym Telegramie**
+> — real cron o wybranej godzinie (wall-clock) + catch-up po restarcie PTB. Logika schedulera + pipeline
+> **zweryfikowane lokalnie 2026-08-30** (harness + CLI e2e — patrz „Weryfikacja na żywo" niżej);
+> read-time potwierdzony na żywo. Reszta TODO niżej.
 
 ---
 
@@ -102,6 +103,16 @@ dostarcza ADHD-friendly briefing. Treści po **angielsku**. Jakość streszczeń
   i handler idą tą samą ścieżką (bez zależności od `Update`).
 - [x] 31 nowych testów (126/126 zielonych), ruff bez nowych ustaleń.
 
+**Weryfikacja na żywo (2026-08-30)** — oprócz 126/126 pytest:
+- **Harness schedulera z wstrzykiwanym zegarem** (realny `BriefingScheduler` + realne SQLite): **10/10** —
+  `sync_all` planuje dokładnie 1 job, `next_run` timezone-aware (07:30 Europe/Warsaw → `+02:00`),
+  catch-up dostarcza pominięty briefing **raz** (oznaczony `late`, zapis w `briefing_runs`), **drugi
+  catch-up nie ponawia** (idempotencja trzyma), user bez źródeł nie dostaje joba.
+- **CLI end-to-end** (realny fetch RSS + Claude Haiku): 5 artykułów, EN, read-time per artykuł,
+  linia kosztu (~$0.0126). Pipeline `prepare → fetch → filter → summarize → format` działa na żywo.
+- **Pozostaje** końcowy przeklik na żywym Telegramie na hoście: cron faktycznie odpalający o wybranej
+  godzinie (wall-clock) + catch-up po restarcie procesu PTB — do zrobienia razem z decyzją hostingową.
+
 **Decyzja: MemoryJobStore zamiast SQLAlchemyJobStore** (odejście od `docs/architecture.md`).
 Harmonogram ma już trwałe źródło prawdy — `users.briefing_time`/`users.timezone`. Trwały jobstore
 byłby drugą kopią tego stanu (do synchronizacji przy każdej zmianie godziny, z ryzykiem dryfu)
@@ -180,3 +191,12 @@ robi `seen_articles`. Onboarding zostaje z checkpointerem (HITL). Patrz CLAUDE.m
   nie warto overfittować na 2-elementowym golden secie.
 - Editable install (`pip install -e .`) bywa kapryśny w sandboxie → testy używają `pythonpath=["src"]`,
   a uruchomienia modułów: `PYTHONPATH=src .venv/bin/python -m ...`.
+- **⚠️ Nie trzymaj `.venv` w folderze synchronizowanym przez iCloud** (Desktop/Documents z włączonym
+  „Desktop & Documents"). Pliki site-packages bywają eksmitowane do chmury (flaga `dataless`), a wtedy
+  **każdy zimny `import` blokuje się** w syscallu read, czekając aż iCloud ściągnie plik po jednym —
+  suite mockowanych testów potrafi „wisieć" minutami przy **0% CPU** (nie deadlock w kodzie!). Objaw
+  wyłapany 2026-08-30 (993 pliki `anthropic/types/*` z flagą `dataless`, daemony `bird`/`cloudd`/
+  `fileproviderd` mielą w tle). Diagnoza: `ls -lO <plik>` pokaże `dataless`; `find . -type f -flags
+  dataless | wc -l`. Doraźnie: `brctl download <projekt>` + wymuszony odczyt (`find … -exec cat {} +
+  >/dev/null`) materializuje pliki. Docelowo: `.venv` poza iCloud (np. `~/venvs/adhd-briefing`) albo
+  cały projekt poza Desktop/Documents.
